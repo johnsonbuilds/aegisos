@@ -9,7 +9,7 @@
 - **任务目标**：定义 AegisOS 内部所有组件和 Agent 之间通信的标准数据结构。
 - **Agent 指令/Prompt**：
     
-    > "你现在的任务是为 AI Agent 操作系统 AegisOS 编写核心通信协议。请使用 [Python的Pydantic / TypeScript的Zod] 定义一个名为 AACPMessage 的数据模型。
+    > "你现在的任务是为 AI Agent 操作系统 AegisOS 编写核心通信协议。请使用 [Python的Pydantic] 定义一个名为 AACPMessage 的数据模型。
     > 
     > 
     > 包含字段：message_id (UUID), timestamp, sender (str), receiver (str), intent (枚举: REQUEST, PROPOSE, INFORM, TASK_COMPLETE, ERROR), payload (字典), context_pointer (可选的字符串，表示文件路径)。
