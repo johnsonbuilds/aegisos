@@ -1,4 +1,4 @@
-# agent分工协作的架构设计
+# Agent-to-Agent Communication Protocol
 
 
 我们需要为AegisOS设计前瞻性的业务场景，在传统软件里，功能是静态写死的；而在我们构想的 AegisOS 中，**智能体不仅是“执行者”，还能成为“管理者”和“造物主”**。这非常像 Linux 系统中的进程管理机制（主进程 fork 出子进程，处理完任务后 kill 掉，彼此通过 IPC 进行进程间通信）。
