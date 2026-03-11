@@ -1,33 +1,41 @@
 import asyncio
 import logging
 from typing import Dict, Callable, Coroutine, Any, Optional
-from aegisos.core.protocol import AACPMessage
+from aegisos.core.protocol import AACPMessage, AACPIntent
 
-# 配置基础日志，方便后续调试
+# 配置日志
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("AegisDispatcher")
 
 class AegisDispatcher:
+    SYSTEM_AGENT_ID = "system@local"
+
     def __init__(self):
         self.agents: Dict[str, Callable[[AACPMessage], Coroutine[Any, Any, None]]] = {}
         self.queue: asyncio.Queue[AACPMessage] = asyncio.Queue()
         self._is_running = False
         self._loop_task: Optional[asyncio.Task] = None
+        
+        # 注册系统代理
+        self.register_agent(self.SYSTEM_AGENT_ID, self._system_agent_callback)
 
-    def register_agent(self, agent_name: str, agent_callback: Callable[[AACPMessage], Coroutine[Any, Any, None]]):
+    def register_agent(self, agent_id: str, callback: Callable[[AACPMessage], Coroutine[Any, Any, None]]):
         """
         注册 Agent 及其异步回调函数。
         """
-        if agent_name in self.agents:
-            logger.warning(f"Agent {agent_name} is already registered. Overwriting.")
-        self.agents[agent_name] = agent_callback
-        logger.info(f"Agent '{agent_name}' registered.")
+        if agent_id in self.agents:
+            logger.warning(f"Agent {agent_id} is already registered. Overwriting.")
+        self.agents[agent_id] = callback
+        logger.info(f"Agent '{agent_id}' registered.")
 
-    def unregister_agent(self, agent_name: str):
+    def unregister_agent(self, agent_id: str):
         """取消注册 Agent"""
-        if agent_name in self.agents:
-            del self.agents[agent_name]
-            logger.info(f"Agent '{agent_name}' unregistered.")
+        if agent_id in self.agents:
+            if agent_id == self.SYSTEM_AGENT_ID:
+                logger.error("Cannot unregister system agent!")
+                return
+            del self.agents[agent_id]
+            logger.info(f"Agent '{agent_id}' unregistered.")
 
     async def send_message(self, message: AACPMessage):
         """
@@ -60,13 +68,8 @@ class AegisDispatcher:
         """核心事件处理循环"""
         while self._is_running:
             try:
-                # 获取下一条消息
                 message = await self.queue.get()
-                
-                # 路由消息
                 await self._route_message(message)
-                
-                # 标记队列任务完成
                 self.queue.task_done()
             except asyncio.CancelledError:
                 break
@@ -78,21 +81,58 @@ class AegisDispatcher:
         target = message.receiver
         
         if target == "BROADCAST":
-            # 广播给所有已注册的 Agent
             logger.info(f"Broadcasting message from {message.sender}")
             tasks = [self._call_agent(name, callback, message) 
                      for name, callback in self.agents.items()]
             if tasks:
                 await asyncio.gather(*tasks)
         elif target in self.agents:
-            # 单播
             await self._call_agent(target, self.agents[target], message)
         else:
             logger.error(f"Target Agent '{target}' not found. Message {message.message_id} dropped.")
 
     async def _call_agent(self, name: str, callback: Callable, message: AACPMessage):
-        """安全地执行 Agent 回调"""
+        """执行 Agent 回调"""
         try:
             await callback(message)
         except Exception as e:
             logger.error(f"Error executing callback for Agent '{name}': {e}", exc_info=True)
+
+    async def _system_agent_callback(self, message: AACPMessage):
+        """
+        内置系统代理回调，处理 SPAWN 和 TERMINATE 请求。
+        """
+        logger.info(f"[SYSTEM] Handling message from {message.sender}: {message.intent}")
+        
+        if message.intent == AACPIntent.SPAWN:
+            # 获取请求中指定的 Agent ID 和回调函数 (Mock 实现)
+            agent_id = message.payload.get("agent_id")
+            # 在真实场景中，这里会根据类型实例化对象。目前我们要求在 payload 里带上临时回调。
+            callback = message.payload.get("callback")
+            
+            if agent_id and callback:
+                self.register_agent(agent_id, callback)
+                # 回复发送者：成功孵化
+                reply = AACPMessage(
+                    sender=self.SYSTEM_AGENT_ID,
+                    receiver=message.sender,
+                    intent=AACPIntent.INFORM,
+                    payload={"status": "SPAWNED", "agent_id": agent_id}
+                )
+                await self.send_message(reply)
+            else:
+                logger.error(f"[SYSTEM] SPAWN failed: Missing agent_id or callback in payload.")
+
+        elif message.intent == AACPIntent.TERMINATE:
+            target_agent_id = message.payload.get("agent_id")
+            if target_agent_id:
+                self.unregister_agent(target_agent_id)
+                reply = AACPMessage(
+                    sender=self.SYSTEM_AGENT_ID,
+                    receiver=message.sender,
+                    intent=AACPIntent.INFORM,
+                    payload={"status": "TERMINATED", "agent_id": target_agent_id}
+                )
+                await self.send_message(reply)
+            else:
+                logger.error(f"[SYSTEM] TERMINATE failed: Missing agent_id in payload.")
