@@ -1,4 +1,33 @@
-# AegisOS 开发约定 (Project Conventions)
+# AI 开发上下文
+
+你正在协助本项目的开发。
+
+请遵循以下规则：
+
+1. 不要凭空捏造产品功能。
+2. 除非有明确要求，否则不要更改架构决策。
+3. 始终遵循现有的项目记忆 (Project Memory)。
+4. 在每次开发任务结束时，主动执行 **Project Memory Update**，并根据更改更新项目记忆：
+   - 更新 `tasks.md` 中的任务状态。
+   - 如果有新的技术决策，更新 `decisions.md`。
+   - 在 `changelog.md` 中记录当天的开发进展。
+   - 除非有明确指示，否则不要修改 `vision.md`。
+   - 除非架构发生变更，否则不要修改 `architecture.md`。
+
+---
+
+# 项目记忆 (Project Memory)
+
+在回答问题前，请阅读以下项目记忆文件：
+
+- project-memory/vision.md
+- project-memory/architecture.md
+- project-memory/decisions.md
+- project-memory/tasks.md
+
+---
+
+# 开发约定 (Project Conventions)
 
 本文档记录了 AegisOS 的核心架构设计、工程实践及开发流程，旨在为 AI Agent 的自动化开发提供一致性的指导。
 
