@@ -2,9 +2,10 @@ import asyncio
 import logging
 from typing import Dict, Callable, Coroutine, Any, Optional
 from aegisos.core.protocol import AACPMessage, AACPIntent
+from aegisos.core.config import CONFIG, NetworkMode
 
 # 配置日志
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=CONFIG.log_level, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("AegisDispatcher")
 
 class AegisDispatcher:
@@ -51,7 +52,7 @@ class AegisDispatcher:
         
         self._is_running = True
         self._loop_task = asyncio.create_task(self._event_loop())
-        logger.info("AegisDispatcher started.")
+        logger.info(f"AegisDispatcher started on instance: {CONFIG.instance_id}")
 
     async def stop(self):
         """停止事件循环"""
@@ -88,8 +89,38 @@ class AegisDispatcher:
                 await asyncio.gather(*tasks)
         elif target in self.agents:
             await self._call_agent(target, self.agents[target], message)
+        elif "@" in target:
+            # 识别远程 URI: {role}_{uuid}@{instance_id}
+            await self.send_to_remote(target, message)
         else:
             logger.error(f"Target Agent '{target}' not found. Message {message.message_id} dropped.")
+
+    async def send_to_remote(self, receiver_uri: str, message: AACPMessage):
+        """
+        跨机通信抽象层 (Egress Gateway)
+        """
+        try:
+            _, instance_id = receiver_uri.split("@")
+        except ValueError:
+            logger.error(f"Invalid receiver URI format: {receiver_uri}")
+            return
+
+        if instance_id == CONFIG.instance_id or instance_id == "local":
+            # 如果 instance_id 匹配当前实例，理论上应该在 self.agents 中，能走到这里说明未注册
+            logger.warning(f"Local delivery failed for {receiver_uri}, agent not registered.")
+            return
+
+        # 根据配置的网络模式进行转发
+        if CONFIG.network_mode == NetworkMode.LOCAL:
+            logger.warning(f"Network mode is LOCAL. Cannot send to remote instance: {instance_id}")
+        elif CONFIG.network_mode == NetworkMode.TAILSCALE:
+            logger.info(f"Mock: Sending to {instance_id} via Tailscale (gRPC/P2P)")
+        elif CONFIG.network_mode == NetworkMode.NOSTR:
+            logger.info(f"Mock: Sending to {instance_id} via Nostr Relay")
+        elif CONFIG.network_mode == NetworkMode.LIBP2P:
+            logger.info(f"Mock: Sending to {instance_id} via libp2p DHT")
+        else:
+            logger.error(f"Unsupported network mode: {CONFIG.network_mode}")
 
     async def _call_agent(self, name: str, callback: Callable, message: AACPMessage):
         """执行 Agent 回调"""

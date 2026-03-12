@@ -2,6 +2,7 @@ import asyncio
 import pytest
 from aegisos.core.protocol import AACPMessage, AACPIntent
 from aegisos.core.dispatcher import AegisDispatcher
+from aegisos.core.config import CONFIG
 
 @pytest.mark.asyncio
 async def test_dispatcher_routing():
@@ -17,16 +18,20 @@ async def test_dispatcher_routing():
     async def callback_b(msg: AACPMessage):
         future_b.set_result(msg)
 
-    dispatcher.register_agent("AgentA", callback_a)
-    dispatcher.register_agent("AgentB", callback_b)
+    agent_a_uri = f"AgentA@{CONFIG.instance_id}"
+    agent_b_uri = f"AgentB@{CONFIG.instance_id}"
+    system_uri = f"System@{CONFIG.instance_id}"
+
+    dispatcher.register_agent(agent_a_uri, callback_a)
+    dispatcher.register_agent(agent_b_uri, callback_b)
 
     # 启动调度器
     await dispatcher.start()
 
     # 1. 发送单播消息给 AgentB
     msg_to_b = AACPMessage(
-        sender="AgentA",
-        receiver="AgentB",
+        sender=agent_a_uri,
+        receiver=agent_b_uri,
         intent=AACPIntent.REQUEST,
         payload={"data": "test_unicast"}
     )
@@ -43,7 +48,7 @@ async def test_dispatcher_routing():
     future_b = asyncio.Future()
     
     msg_broadcast = AACPMessage(
-        sender="System",
+        sender=system_uri,
         receiver="BROADCAST",
         intent=AACPIntent.INFORM,
         payload={"data": "test_broadcast"}
@@ -68,8 +73,8 @@ async def test_dispatcher_invalid_target():
 
     # 发送给不存在的 Agent
     msg = AACPMessage(
-        sender="AgentA",
-        receiver="Unknown",
+        sender=f"AgentA@{CONFIG.instance_id}",
+        receiver=f"Unknown@{CONFIG.instance_id}",
         intent=AACPIntent.REQUEST,
         payload={}
     )
