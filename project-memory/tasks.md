@@ -19,7 +19,12 @@
 - [ ] 实现 `SandboxRunner`，支持在受限子进程中执行 Python 代码。
 - [ ] TODO: 调研轻量级容器 (Docker/Firecracker) 的集成方案。
 
+## 基础设施与分布式 (Phase 4 预研)
+- [x] **架构设计更新**：完成 Egress Gateway、Go Sidecar 及二进制捆绑方案的 Project Memory 更新。
+- [ ] **AegisOS-Net 原型**：使用 Go 实现简单的 Libp2p 节点发现。
+- [ ] **UDS 通信层**：在 Python 调度器中实现 Unix Domain Socket 客户端。
+
 ## 待办事项 (TODO)
-- [ ] TODO: 确定冷记忆提取的触发阈值。
-- [ ] TODO: 设计 AACP 跨实例路由的具体网关协议。
+- [x] **设计 AACP 跨实例路由的具体网关协议**：已确定 Evolutionary Egress Gateway 三阶段方案。
 - [ ] TODO: 评估 WebAssembly 作为本地轻量沙箱的可行性。
+- [ ] TODO: 交叉编译 Go 二进制文件并在 Python 中测试拉起逻辑。

@@ -11,24 +11,32 @@
 - 维护全局注册表，支持 `system@local` 内核代理。
 - 处理 AACP 消息的路由与广播。
 
-### 2.2 WorkspaceManager (黑板模式管理器)
+### 2.2 Evolutionary Egress Gateway (演进式网关)
+- **抽象层**：在 `AegisDispatcher` 中抽象出 `Network Gateway`，对上层 Agent 屏蔽底层网络寻址细节。
+- **演进阶段**：
+  - **阶段 1 (Private Cloud)**：基于 Tailscale/WireGuard 的虚拟局域网路由，利用固定虚拟 IP 进行通信。
+  - **阶段 2 (Federated Relay)**：基于 WebSocket + Pub/Sub Relay（类似 Nostr 协议），通过公钥加密消息并由中继站转发，解决跨防火墙穿透。
+  - **阶段 3 (Pure P2P)**：基于 Libp2p/DHT 的全去中心化网络，实现 Web3 级的点对点连接。
+
+### 2.3 WorkspaceManager (黑板模式管理器)
 - 负责 `_workspace/{session_id}` 的目录生命周期。
 - 提供 `write_file` / `read_file` 异步接口。
 - **安全性**：内置路径穿越校验，确保所有 I/O 局限于工作区内。
 
-### 2.3 AACP (Agent-to-Agent Communication Protocol)
+### 2.4 AACP (Agent-to-Agent Communication Protocol)
 - **格式**：JSON (Pydantic 模型)。
 - **字段**：`message_id`, `timestamp`, `sender`, `receiver`, `intent`, `payload`, `context_pointer`。
 - **意图(Intent)**：REQUEST, PROPOSE, INFORM, TASK_COMPLETE, ERROR, SPAWN, TERMINATE。
 
-### 2.4 OpenClaw Compatibility Layer (兼容层)
+### 2.5 OpenClaw Compatibility Layer (兼容层)
 - 负责自动解析 OpenClaw 的第三方 `skill.md` 市场生态。
 - **安全降级**：加载的外部代码强制注入云端 Serverless 沙箱或 Docker 容器执行，确保首日生态即插即用。
 
 ## 3. 寻址与协同机制
 ### 3.1 Agent URI
 采用类似邮箱的寻址标准：`{role}_{uuid}@{instance_id}`。
-- 示例：`planner@local`, `coder_tmp_8f2a@local`。
+- **本地地址**：`planner@local`。
+- **远程地址**：`planner@macbook-pro.local` (Tailscale) 或 `planner@{public_key}` (Nostr/P2P)。
 
 ### 3.2 共享工作区指针 (Context Pointer)
 Agent 之间不传递大型数据块，而是通过 AACP 消息中的 `context_pointer` 传递工作区内的文件相对路径。
@@ -44,6 +52,11 @@ Agent 之间不传递大型数据块，而是通过 AACP 消息中的 `context_p
 - 使用极小模型（如 Llama-3-8B）对意图进行实时分类。
 - 每次请求仅在主模型 Prompt 中挂载最相关的 2-3 个技能说明，缩减 90% 的上下文占用。
 - 全面启用底层模型 API 的 Prompt Caching。
+
+### 3.6 跨进程通信 (IPC via UDS/gRPC)
+- **Sidecar 模式**：Python 主进程负责 AI 逻辑与调度，Go 守护进程 (`aegisos-net`) 负责底层 Libp2p 网络与 DHT 寻址。
+- **低延迟桥梁**：两者通过本地 **Unix Domain Socket (UDS)** 或 **localhost gRPC** 进行高速通信。
+- **流程**：Python 侧将远程消息投递给本地 Socket -> Go 进程解析并路由至全球网络。
 
 ## 4. 关键能力引擎 (Engines)
 AegisOS 通过集成专业化引擎扩展其能力：

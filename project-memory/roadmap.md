@@ -26,8 +26,13 @@
 - [ ] **Scrapling 数据采集装甲**：高强度反爬与 UI 自适应爬虫。
 
 ## 第四阶段 (Phase 4): 基础设施化与分布式
-**目标**：性能优化与跨机器协同。
+**目标**：性能优化、跨机器协同与去中心化寻址。
 
-- [ ] **Control Plane 重写**：使用 Go 或 Rust 重写调度器以降低内存占用（约 20MB）。
-- [ ] **Cross-Instance Routing**：实现跨机器/跨地域的智能体寻址与通信。
-- [ ] **SOP 工作流引擎**：支持基于 YAML 的复杂标准作业程序定义。
+- [ ] **AegisOS-Net (Go Sidecar)**：基于 `go-libp2p` 实现 P2P 网络栈，支持 Kademlia DHT 寻址。
+- [ ] **Evolutionary Egress Gateway**：
+    - [ ] 阶段 1：支持 Tailscale 虚拟局域网路由。
+    - [ ] 阶段 2：集成 Nostr Relay 实现跨防火墙公钥路由。
+    - [ ] 阶段 3：全量开启 Libp2p/WebRTC 打洞。
+- [ ] **IPC 通信优化**：实现 Python 与 Go 之间的 Unix Domain Socket / gRPC 高速通道。
+- [ ] **CI/CD 二进制捆绑**：交叉编译 Go 引擎并打入 Python Wheel 包。
+- [ ] **SOP 工作流引擎**：支持基于 YAML 的复杂标准作业流程定义。
