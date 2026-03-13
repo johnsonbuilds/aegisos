@@ -1,32 +1,3 @@
-# AI 开发上下文
-
-你正在协助本项目的开发。
-
-请遵循以下规则：
-
-1. 不要凭空捏造产品功能。
-2. 除非有明确要求，否则不要更改架构决策。
-3. 始终遵循现有的项目记忆 (Project Memory)。
-4. 在每次开发任务结束时，主动执行 **Project Memory Update**，并根据更改更新项目记忆：
-   - 更新 `tasks.md` 中的任务状态。
-   - 如果有新的技术决策，更新 `decisions.md`。
-   - 在 `changelog.md` 中记录当天的开发进展。
-   - 除非有明确指示，否则不要修改 `vision.md`。
-   - 除非架构发生变更，否则不要修改 `architecture.md`。
-
----
-
-# 项目记忆 (Project Memory)
-
-在回答问题前，请阅读以下项目记忆文件：
-
-- project-memory/vision.md
-- project-memory/architecture.md
-- project-memory/decisions.md
-- project-memory/tasks.md
-
----
-
 # 开发约定 (Project Conventions)
 
 本文档记录了 AegisOS 的核心架构设计、工程实践及开发流程，旨在为 AI Agent 的自动化开发提供一致性的指导。
@@ -46,7 +17,11 @@
 
 对于每个 Phase 的任务，遵循以下循环：
 
-1.  **Research**: 阅读相关 `docs/` 文档，理解任务需求。
+1.  **Research**: 阅读项目记忆文件，了解现状和下一步任务需求:
+    - project-memory/vision.md
+    - project-memory/architecture.md
+    - project-memory/decisions.md
+    - project-memory/tasks.md
 2.  **Plan**: 明确实现细节、接口定义及测试策略。
 3.  **Act**: 编写/修改代码。
 4.  **Validate**: 
@@ -54,20 +29,32 @@
     - 运行阶段性 E2E 脚本: `python scripts/test_e2e_xxx.py`
 5.  **Commit**: 验证无误后，提交代码并总结当前 Phase。
     - 提交信息格式: `feat(phaseX): description` 或 `fix(component): description`。
+6.  **更新项目记忆**: 
+
+- 更新 `tasks.md` 中的任务状态。
+- 如果有新的技术决策，更新 `decisions.md`。
+- 在 `changelog.md` 中记录当天的开发进展。
+- 除非有明确指示，否则不要修改 `vision.md`。
+- 除非架构发生变更，否则不要修改 `architecture.md`。
 
 ## 3. 模块职责划分
 
-- `core.protocol`: 定义 AACP 通信协议的标准格式。
-- `core.dispatcher`: 实现基于 `asyncio.Queue` 的消息分发中心。
+- `core.protocol`: 定义 AACP 通信协议 Standard Format 及 Agent URI 规范。
+- `core.dispatcher`: 实现基于 `asyncio.Queue` 的消息分发中心，支持本地路由与远程 Egress（Tailscale/Nostr 等）。
 - `core.workspace`: 管理 Session 隔离的安全文件存储区（Blackboard）。
+- `core.llm`: LLM 引擎抽象层，支持结构化输出 (Structured Outputs)。
 - `agents/`: 存放各类型 Agent 的实现逻辑。
 - `memory/`: (待开发) 处理 Token 路由拦截及长短期记忆。
 
 ## 4. 关键接口约定
 
-- **AACP 消息**: 包含 `message_id`, `sender`, `receiver`, `intent`, `payload`, `context_pointer`。
-- **Agent 回调**: 签名必须为 `async def callback(message: AACPMessage) -> None`。
-- **广播地址**: `BROADCAST` 用于向所有已注册 Agent 发送通知。
+- **Agent URI**: 格式为 `{id}@{instance}`（例如 `assistant_123@local`）。`BROADCAST` 为特殊保留地址。
+- **AACP 消息**: 包含 `message_id`, `timestamp`, `sender`, `receiver`, `intent`, `payload`, `context_pointer`。
+- **Agent 回调**: 签名建议为 `async def handle_message(self, message: AACPMessage) -> None`。
+- **系统意图**:
+  - `SPAWN`: 动态创建新 Agent 实例。
+  - `TERMINATE`: 销毁指定 Agent 实例。
+- **结构化思考**: Agent 内部使用 `AACPResponse` 模型进行推理，再转化为 `AACPMessage` 进行分发。
 
 ---
 *本文件将随着项目进度的推进而持续更新。*
