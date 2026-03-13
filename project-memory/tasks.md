@@ -1,31 +1,31 @@
-# AegisOS Tasks
+# AegisOS Active Tasks (Phase 2 Focus)
 
-## 当前任务 (Phase 1 尾声)
-- [x] **完善单元测试**：确保 `Dispatcher` 和 `WorkspaceManager` 的边缘情况得到覆盖。
-- [x] **文档化 AACP 协议**：为开发者编写详细的协议说明文档。
+## 近期回顾 (Phase 1 归档)
+- [x] **内核核心实现**：Dispatcher, Workspace, Protocol, Kernel Agent 已上线。
+- [x] **安全性与稳定性**：完成边缘情况单元测试，发布 AACP 协议规格文档。
 
-## 下一阶段 (Phase 2 - 大模型与安全)
-### Task 5: LLM Engine 挂载
-- [x] 实现 `LLMEngine` 类，对接 OpenAI/Claude API。
-- [x] 实现基础的 Structured Outputs (OpenAI `.parse()` 适配)。
-- [ ] 封装 AACP 专用生成器，强制 LLM 返回符合 AACP 规格的 JSON。
-- [ ] 支持提示词缓存 (Prompt Caching) 以降低成本。
+## 当前重点 (Phase 2: 认知引擎与记忆)
+### Task 5: LLM Engine & AACPAgent 集成
+- [x] **LLM Engine 实现**：完成 OpenAI/Anthropic 异步适配器。
+- [x] **AACPAgent 基类**：实现结构化决策闭环。
+- [ ] **异步回调集成**：将 `AACPAgent.handle_message` 真正作为回调函数注册到 `AegisDispatcher` 中。
+- [ ] **Prompt 优化**：针对不同模型优化 AACP 响应的稳定性，减少格式幻觉。
+- [ ] **Prompt Caching**：利用 API 缓存降低重复指令的成本。
 
 ### Task 6: Memory Manager 实现
-- [ ] 实现热记忆截断逻辑 (滑动窗口)。
-- [ ] 集成向量数据库 (如 ChromaDB/Qdrant) 用于冷记忆存储。
-- [ ] 实现异步事实/偏好提取智能体。
+- [ ] **Hot Memory (滑动窗口)**：
+    - [ ] 实现 `MemoryManager.add_message()`。
+    - [ ] 实现基于 Token 计数或轮数的自动截断逻辑。
+    - [ ] 集成到 `AACPAgent` 替换现有的简单列表历史。
+- [ ] **Cold Memory (向量数据库)**：
+    - [ ] 集成 ChromaDB 或 Qdrant。
+    - [ ] 实现异步 RAG 检索流程。
+- [ ] **记忆固化 (Knowledge Distillation)**：
+    - [ ] 实现后台任务，自动从热记忆中提取“事实/偏好”存入冷记忆。
 
 ### Task 7: 基础安全沙箱
-- [ ] 实现 `SandboxRunner`，支持在受限子进程中执行 Python 代码。
-- [ ] TODO: 调研轻量级容器 (Docker/Firecracker) 的集成方案。
+- [ ] **SandboxRunner**：基于受限子进程实现 Python 代码执行隔离。
+- [ ] **HITL 拦截器**：定义敏感动作的审批工作流。
 
-## 基础设施与分布式 (Phase 4 预研)
-- [x] **架构设计更新**：完成 Egress Gateway、Go Sidecar 及二进制捆绑方案的 Project Memory 更新。
-- [ ] **AegisOS-Net 原型**：使用 Go 实现简单的 Libp2p 节点发现。
-- [ ] **UDS 通信层**：在 Python 调度器中实现 Unix Domain Socket 客户端。
-
-## 待办事项 (TODO)
-- [x] **设计 AACP 跨实例路由的具体网关协议**：已确定 Evolutionary Egress Gateway 三阶段方案。
-- [ ] TODO: 评估 WebAssembly 作为本地轻量沙箱的可行性。
-- [ ] TODO: 交叉编译 Go 二进制文件并在 Python 中测试拉起逻辑。
+---
+*注：长期规划请参见 [Roadmap](./roadmap.md)*
