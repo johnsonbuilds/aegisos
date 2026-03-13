@@ -1,17 +1,12 @@
 # AegisOS Changelog
 
-## [0.1.0] - 2026-03-11
+## [0.1.1] - 2026-03-13
 ### Added
-- **Core Skeleton**: 实现了 AegisOS 的核心骨架。
-- **AACP Protocol**: 基于 Pydantic 定义了 Agent 间通信协议模型。
-- **AegisDispatcher**: 实现了基于 asyncio 的中心消息分发器，支持 Agent 注册与消息路由。
-- **WorkspaceManager**: 实现了具备安全校验的共享工作区管理，支持文件的异步读写。
-- **Kernel Agent**: 内置系统代理，支持动态 `SPAWN` 和 `TERMINATE` 生命周期管理。
-- **E2E Test**: 完成了端到端的 Dummy Agent 动态生命周期与协同测试脚本。
-- **Project Memory**: 建立了标准的项目记忆系统文档结构。
+- **LLM Engines**: 对接 OpenAI (Structured Outputs) 与 Anthropic API 的异步引擎实现。
+- **AACP Specification**: 在 `docs/AACP_Spec.md` 中编写了详细的协议规范。
+- **Edge Case Tests**: 增强了对 `Dispatcher` 异常隔离和 `Workspace` 安全路径的测试覆盖。
+- **Dependencies**: 引入了 `openai` 和 `anthropic` SDK。
 
-### Documentation
-- 完成产品需求文档 (PRD)。
-- 完成演进式架构设计方案。
-- 完成 Agent 分工协作架构设计。
-- 完成第一阶段开发冲刺计划。
+### Fixed
+- 修复了 `Dispatcher` 在注册/注销时的系统代理保护逻辑。
+- 修复了 `WorkspaceManager` 在处理深层目录时的自动创建逻辑。

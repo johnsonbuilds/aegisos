@@ -1,13 +1,14 @@
 # AegisOS Tasks
 
 ## 当前任务 (Phase 1 尾声)
-- [ ] **完善单元测试**：确保 `Dispatcher` 和 `WorkspaceManager` 的边缘情况得到覆盖。
-- [ ] **文档化 AACP 协议**：为开发者编写详细的协议说明文档。
+- [x] **完善单元测试**：确保 `Dispatcher` 和 `WorkspaceManager` 的边缘情况得到覆盖。
+- [x] **文档化 AACP 协议**：为开发者编写详细的协议说明文档。
 
 ## 下一阶段 (Phase 2 - 大模型与安全)
 ### Task 5: LLM Engine 挂载
-- [ ] 实现 `LLMEngine` 类，对接 OpenAI/Claude API。
-- [ ] 封装 Structured Outputs 逻辑，强制 LLM 返回符合 AACP 规格的 JSON。
+- [x] 实现 `LLMEngine` 类，对接 OpenAI/Claude API。
+- [x] 实现基础的 Structured Outputs (OpenAI `.parse()` 适配)。
+- [ ] 封装 AACP 专用生成器，强制 LLM 返回符合 AACP 规格的 JSON。
 - [ ] 支持提示词缓存 (Prompt Caching) 以降低成本。
 
 ### Task 6: Memory Manager 实现
