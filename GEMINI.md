@@ -17,23 +17,31 @@
 
 对于每个 Phase 的任务，遵循以下循环：
 
-1.  **Research**: 阅读项目记忆文件，了解现状和下一步任务需求:
-    - project-memory/vision.md
-    - project-memory/architecture.md
-    - project-memory/decisions.md
-    - project-memory/tasks.md
-2.  **Plan**: 明确实现细节、接口定义及测试策略。
-3.  **Act**: 编写/修改代码。
-4.  **Validate**: 
-    - 运行针对性的单元测试: `pytest tests/test_xxx.py`
-    - 运行阶段性 E2E 脚本: `python scripts/test_e2e_xxx.py`
-5.  **Commit**: 验证无误后，提交代码并总结当前 Phase。
-    - 提交信息格式: `feat(phaseX): description` 或 `fix(component): description`。
-6.  **更新项目记忆**: 
+### 1.Research: 阅读项目记忆文件，了解当前现状和下一步任务
+
+- project-memory/vision.md
+- project-memory/architecture.md
+- project-memory/decisions.md
+- project-memory/tasks.md
+
+### 2.Plan: 明确实现细节、接口定义及测试策略
+
+### 3.Act: 编写/修改代码
+
+### 4.Validate
+
+- 运行针对性的单元测试: `pytest tests/test_xxx.py`
+- 运行阶段性 E2E 脚本: `python scripts/test_e2e_xxx.py`
+
+### 5.Commit: 验证无误后，提交代码并总结当前 Phase
+
+- 提交信息格式: `feat(phaseX): description` 或 `fix(component): description`。
+
+### 6.更新项目记忆
 
 - 更新 `tasks.md` 中的任务状态。
-- 如果有新的技术决策，更新 `decisions.md`。
 - 在 `changelog.md` 中记录当天的开发进展。
+- 如果有新的技术决策，更新 `decisions.md`。
 - 除非有明确指示，否则不要修改 `vision.md`。
 - 除非架构发生变更，否则不要修改 `architecture.md`。
 
