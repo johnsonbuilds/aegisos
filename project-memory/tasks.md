@@ -8,7 +8,7 @@
 ### Task 5: LLM Engine & AACPAgent 集成
 - [x] **LLM Engine 实现**：完成 OpenAI/Anthropic 异步适配器。
 - [x] **AACPAgent 基类**：实现结构化决策闭环。
-- [ ] **异步回调集成**：将 `AACPAgent.handle_message` 真正作为回调函数注册到 `AegisDispatcher` 中。
+- [x] **异步回调集成**：将 `AACPAgent.handle_message` 真正作为回调函数注册到 `AegisDispatcher` 中，并支持通过 `system@local` 动态孵化 (SPAWN)。
 - [ ] **Prompt 优化**：针对不同模型优化 AACP 响应的稳定性，减少格式幻觉。
 - [ ] **Prompt Caching**：利用 API 缓存降低重复指令的成本。
 

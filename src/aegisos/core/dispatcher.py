@@ -2,6 +2,7 @@ import asyncio
 import logging
 from typing import Dict, Callable, Coroutine, Any, Optional
 from aegisos.core.protocol import AACPMessage, AACPIntent
+from aegisos.core.llm import BaseLLMEngine
 from aegisos.core.config import CONFIG, NetworkMode
 
 # 配置日志
@@ -11,11 +12,12 @@ logger = logging.getLogger("AegisDispatcher")
 class AegisDispatcher:
     SYSTEM_AGENT_ID = "system@local"
 
-    def __init__(self):
+    def __init__(self, default_llm: Optional[BaseLLMEngine] = None):
         self.agents: Dict[str, Callable[[AACPMessage], Coroutine[Any, Any, None]]] = {}
         self.queue: asyncio.Queue[AACPMessage] = asyncio.Queue()
         self._is_running = False
         self._loop_task: Optional[asyncio.Task] = None
+        self.default_llm = default_llm
         
         # 注册系统代理
         self.register_agent(self.SYSTEM_AGENT_ID, self._system_agent_callback)
@@ -133,26 +135,39 @@ class AegisDispatcher:
         """
         内置系统代理回调，处理 SPAWN 和 TERMINATE 请求。
         """
+        from aegisos.agents.base import AACPAgent
+
         logger.info(f"[SYSTEM] Handling message from {message.sender}: {message.intent}")
         
         if message.intent == AACPIntent.SPAWN:
-            # 获取请求中指定的 Agent ID 和回调函数 (Mock 实现)
-            agent_id = message.payload.get("agent_id")
-            # 在真实场景中，这里会根据类型实例化对象。目前我们要求在 payload 里带上临时回调。
-            callback = message.payload.get("callback")
+            # 获取请求中指定的角色和 Prompt
+            role = message.payload.get("role", "assistant")
+            system_prompt = message.payload.get("prompt", "You are a helpful assistant.")
             
-            if agent_id and callback:
-                self.register_agent(agent_id, callback)
-                # 回复发送者：成功孵化
-                reply = AACPMessage(
-                    sender=self.SYSTEM_AGENT_ID,
-                    receiver=message.sender,
-                    intent=AACPIntent.INFORM,
-                    payload={"status": "SPAWNED", "agent_id": agent_id}
-                )
-                await self.send_message(reply)
-            else:
-                logger.error(f"[SYSTEM] SPAWN failed: Missing agent_id or callback in payload.")
+            # 使用默认 LLM Engine 实例化 Agent
+            if not self.default_llm:
+                logger.error("[SYSTEM] SPAWN failed: No default LLM engine configured in Dispatcher.")
+                return
+
+            new_agent = AACPAgent(
+                role=role,
+                llm_engine=self.default_llm,
+                system_prompt=system_prompt,
+                dispatcher=self
+            )
+            
+            # 注册新 Agent
+            self.register_agent(new_agent.agent_id, new_agent.handle_message)
+            
+            # 回复发送者：成功孵化
+            reply = AACPMessage(
+                sender=self.SYSTEM_AGENT_ID,
+                receiver=message.sender,
+                intent=AACPIntent.INFORM,
+                payload={"status": "SPAWNED", "agent_id": new_agent.agent_id}
+            )
+            await self.send_message(reply)
+            logger.info(f"[SYSTEM] Spawned new agent: {new_agent.agent_id}")
 
         elif message.intent == AACPIntent.TERMINATE:
             target_agent_id = message.payload.get("agent_id")

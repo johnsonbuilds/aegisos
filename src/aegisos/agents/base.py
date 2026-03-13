@@ -1,6 +1,7 @@
 import asyncio
 import logging
-from typing import List, Dict, Any, Optional, Type
+import uuid
+from typing import List, Dict, Any, Optional, Type, Union
 from pydantic import BaseModel, Field
 from aegisos.core.protocol import AACPMessage, AACPIntent
 from aegisos.core.llm import BaseLLMEngine
@@ -13,8 +14,8 @@ class AACPResponse(BaseModel):
     LLM 思考后返回的精简结构化输出模型。
     用于指导 Agent 生成完整的 AACPMessage。
     """
-    receiver: str = Field(description="目标接收者的 URI 或 'BROADCAST'")
-    intent: AACPIntent = Field(description="消息意图 (REQUEST, INFORM, REPLY, etc.)")
+    receiver: Optional[str] = Field(None, description="目标接收者的 URI 或 'BROADCAST'。如果为 None 则不发送消息。")
+    intent: AACPIntent = Field(default=AACPIntent.INFORM, description="消息意图 (REQUEST, INFORM, REPLY, etc.)")
     payload: Dict[str, Any] = Field(default_factory=dict, description="具体的业务数据或指令内容")
     context_pointer: Optional[str] = Field(None, description="Workspace 中的文件路径（如需传递大数据）")
     thought: Optional[str] = Field(None, description="Agent 内部的思考过程 (Chain of Thought)")
@@ -25,12 +26,23 @@ class AACPAgent:
     """
     def __init__(
         self, 
-        agent_id: str, 
+        role: str, 
         llm_engine: BaseLLMEngine, 
         system_prompt: str,
+        agent_id: Optional[str] = None,
         dispatcher: Optional[Any] = None
     ):
-        self.agent_id = f"{agent_id}@{CONFIG.instance_id}"
+        # 如果未提供 agent_id，则根据 role 和 uuid 生成
+        if not agent_id:
+            uid = str(uuid.uuid4())[:8]
+            self.agent_id = f"{role}_{uid}@{CONFIG.instance_id}"
+        else:
+            if "@" not in agent_id:
+                self.agent_id = f"{agent_id}@{CONFIG.instance_id}"
+            else:
+                self.agent_id = agent_id
+
+        self.role = role
         self.llm = llm_engine
         self.system_prompt = system_prompt
         self.dispatcher = dispatcher
@@ -40,6 +52,12 @@ class AACPAgent:
         self.history: List[Dict[str, str]] = [
             {"role": "system", "content": system_prompt}
         ]
+
+    def register_to(self, dispatcher: Any):
+        """将自己注册到指定的 Dispatcher"""
+        self.dispatcher = dispatcher
+        dispatcher.register_agent(self.agent_id, self.handle_message)
+        logger.info(f"Agent {self.agent_id} registered to dispatcher.")
 
     async def handle_message(self, message: AACPMessage):
         """
@@ -76,10 +94,20 @@ class AACPAgent:
             )
             
             # 记录 Agent 自己的思考和动作
+            action_desc = f"THOUGHT: {response.thought}\n"
+            if response.receiver:
+                action_desc += f"ACTION: {response.intent} to {response.receiver}"
+            else:
+                action_desc += "ACTION: No further action required."
+                
             self.history.append({
                 "role": "assistant", 
-                "content": f"THOUGHT: {response.thought}\nACTION: {response.intent} to {response.receiver}"
+                "content": action_desc
             })
+
+            if not response.receiver:
+                logger.info(f"[{self.agent_id}] No action decided.")
+                return
 
             logger.info(f"[{self.agent_id}] Decision: {response.intent} -> {response.receiver}")
 

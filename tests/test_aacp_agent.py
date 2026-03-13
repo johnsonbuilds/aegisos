@@ -22,6 +22,7 @@ async def test_aacp_agent_think_loop():
     mock_llm.generate.return_value = mock_decision
 
     agent = AACPAgent(
+        role="assistant",
         agent_id="TestBot",
         llm_engine=mock_llm,
         system_prompt="You are a helpful assistant.",

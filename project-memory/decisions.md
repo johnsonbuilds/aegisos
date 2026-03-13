@@ -46,3 +46,18 @@
 - **理由**：
   - **无感体验**：用户通过 `uv add aegisos` 或 `pip install` 即可获得完整的跨机器协同能力，无需手动安装 Go 环境或配置复杂的 P2P 节点。
   - **进程管理**：Python 启动器会自动根据平台拉起对应的 Sidecar 进程，并负责其生命周期管理。
+
+## 9. 智能体行为：自主反应与 NOOP 机制
+- **决策**：
+  - `AACPAgent` 在收到消息后通过 `handle_message` 自动触发 `think()` 循环。
+  - `AACPResponse.receiver` 可为 `None`，代表 Agent 决定不采取进一步行动 (NOOP)。
+- **理由**：
+  - **自主性**：减少显式的 `think` 调用代码，使 Agent 具备原生反应力。
+  - **防死循环**：通过显式的 NOOP 状态打破 Agent 与自身或他人的无限消息循环。
+
+## 10. 系统内核：动态孵化 (Dynamic Spawning)
+- **决策**：`AegisDispatcher` 中的 `system@local` 代理通过 `SPAWN` 意图动态实例化 `AACPAgent` 类，而非仅注册简单的回调函数。
+- **理由**：
+  - **对象化管理**：确保所有被孵化的 Agent 都继承 `AACPAgent` 的认知与记忆管理能力，而非孤立的函数。
+  - **生命周期闭环**：配合 `TERMINATE` 意图，实现 Agent 的自动化入职与销毁流程。
+
