@@ -157,3 +157,4 @@ tests/_test_workspace/
 .gemini/
 .env*
 !docs/
+GEMINI.md
