@@ -16,7 +16,7 @@
 - [ ] **MemoryManager (记忆引擎)**：
     - [ ] **热记忆**：实现滑动窗口机制，保留近 5 轮对话及当前任务状态。
     - [ ] **冷记忆**：异步提取“事实 (Facts)”存入轻量级向量库 (Chroma)，通过 RAG 唤醒。
-- [ ] **Dynamic Skill Routing**：引入小型分类器 (如 Llama-3-8B)，拦截意图并仅挂载最相关的 2-3 个技能 Prompt。
+- [ ] **Dynamic Skill Routing**：引入小型分类器 ，拦截意图并仅挂载最相关的 2-3 个技能 Prompt。
 - [ ] **Prompt Caching**：启用 API 层面的系统级缓存，降低常驻指令的延迟与成本。
 
 ## 第三阶段 (Phase 3): 零信任沙箱与遗留生态兼容 (The Shield & Ecosystem)

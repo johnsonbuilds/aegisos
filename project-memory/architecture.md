@@ -89,3 +89,23 @@ AegisOS 通过集成专业化引擎扩展其能力：
 - **包管理**：uv
 - **异步框架**：asyncio / aiofiles
 - **数据校验**：Pydantic v2
+
+## 7. 存储与记忆协作模型 (Storage & Memory Collaboration)
+AegisOS 采用“办公桌 + 大脑”的双重存储模型，明确划分了 `WorkspaceManager` 与 `MemoryManager` 的职责边界：
+
+### 7.1 WorkspaceManager (办公桌 / 外部硬盘)
+- **定位**：管理**持久化的数据资产 (Artifacts)** 和 **多智能体共享环境 (Blackboard)**。
+- **职责**：
+    - **大数据处理**：存储 LLM 无法直接放入上下文的大型文件（需求文档、源代码、数据集）。
+    - **交付物管理**：记录 Agent 生成的最终产出（代码文件、报告、图片）。
+    - **安全隔离**：提供基于 Session 的路径穿越防护，确保 Agent 仅能在授权的工作区内操作。
+- **协作方式**：通过 AACP 消息中的 `context_pointer` 传递文件路径。
+
+### 7.2 MemoryManager (大脑 / 认知缓存)
+- **定位**：管理**认知的连续性**、**会话上下文**以及 **Token 窗口安全**。
+- **职责**：
+    - **热记忆 (Hot Memory)**：维护最近的对话历史 (Dialogue) 和思考过程 (Chain of Thought)，实现自动截断与 Token 优化。
+    - **冷记忆 (Cold Memory)**：异步提取关键事实 (Facts) 与偏好 (Preferences) 存入向量数据库，实现长期知识沉淀。
+    - **认知过滤**：在发送给 LLM 前，根据任务相关性对历史进行重构或压缩（Summarization）。
+- **协作方式**：直接挂载在 `AACPAgent` 实例中，作为其推理的上下文来源。
+

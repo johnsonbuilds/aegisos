@@ -46,7 +46,7 @@ async def test_aacp_agent_think_loop():
     assert kwargs["response_model"] == AACPResponse
     
     # 验证消息历史已更新
-    assert len(agent.history) == 3 # System + User(hi) + Assistant(thought)
+    assert len(agent.memory.history) == 3 # System + User(hi) + Assistant(thought)
 
     # 验证 Dispatcher 收到了传出的 AACPMessage
     mock_dispatcher.send_message.assert_called_once()

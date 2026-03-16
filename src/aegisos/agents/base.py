@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 from aegisos.core.protocol import AACPMessage, AACPIntent
 from aegisos.core.llm import BaseLLMEngine
 from aegisos.core.config import CONFIG
+from aegisos.memory.manager import MemoryManager
 
 logger = logging.getLogger("AACPAgent")
 
@@ -30,7 +31,8 @@ class AACPAgent:
         llm_engine: BaseLLMEngine, 
         system_prompt: str,
         agent_id: Optional[str] = None,
-        dispatcher: Optional[Any] = None
+        dispatcher: Optional[Any] = None,
+        max_memory_messages: int = 15
     ):
         # 如果未提供 agent_id，则根据 role 和 uuid 生成
         if not agent_id:
@@ -47,11 +49,11 @@ class AACPAgent:
         self.system_prompt = system_prompt
         self.dispatcher = dispatcher
         
-        # 热记忆：保存当前会话的消息历史 (Role, Content)
-        # TODO: 后续交由 MemoryManager 管理
-        self.history: List[Dict[str, str]] = [
-            {"role": "system", "content": system_prompt}
-        ]
+        # 使用 MemoryManager 管理热记忆
+        self.memory = MemoryManager(
+            max_messages=max_memory_messages, 
+            system_prompt=system_prompt
+        )
 
     def register_to(self, dispatcher: Any):
         """将自己注册到指定的 Dispatcher"""
@@ -75,7 +77,8 @@ class AACPAgent:
         if message.context_pointer:
             msg_str += f"CONTEXT_POINTER: {message.context_pointer}\n"
 
-        self.history.append({"role": "user", "content": msg_str})
+        # 记录到记忆中
+        await self.memory.add_message(role="user", content=msg_str)
         
         # 自动触发反应
         await self.think()
@@ -89,7 +92,7 @@ class AACPAgent:
         try:
             # 强制 Structured Outputs
             response: AACPResponse = await self.llm.generate(
-                messages=self.history,
+                messages=self.memory.get_context(),
                 response_model=AACPResponse
             )
             
@@ -100,10 +103,8 @@ class AACPAgent:
             else:
                 action_desc += "ACTION: No further action required."
                 
-            self.history.append({
-                "role": "assistant", 
-                "content": action_desc
-            })
+            # 记录助手回复到记忆
+            await self.memory.add_message(role="assistant", content=action_desc)
 
             if not response.receiver:
                 logger.info(f"[{self.agent_id}] No action decided.")
@@ -131,7 +132,7 @@ class AACPAgent:
             if self.dispatcher:
                 error_msg = AACPMessage(
                     sender=self.agent_id,
-                    receiver="BROADCAST", # 或发回给上一个发送者
+                    receiver="BROADCAST",
                     intent=AACPIntent.ERROR,
                     payload={"error": str(e)}
                 )
