@@ -135,39 +135,49 @@ class AegisDispatcher:
         """
         内置系统代理回调，处理 SPAWN 和 TERMINATE 请求。
         """
-        from aegisos.agents.base import AACPAgent
+        from aegisos.core.factory import AGENT_FACTORY
 
         logger.info(f"[SYSTEM] Handling message from {message.sender}: {message.intent}")
         
         if message.intent == AACPIntent.SPAWN:
-            # 获取请求中指定的角色和 Prompt
+            agent_type = message.payload.get("agent_type", "llm")
             role = message.payload.get("role", "assistant")
-            system_prompt = message.payload.get("prompt", "You are a helpful assistant.")
+            requested_id = message.payload.get("agent_id")
             
-            # 使用默认 LLM Engine 实例化 Agent
-            if not self.default_llm:
-                logger.error("[SYSTEM] SPAWN failed: No default LLM engine configured in Dispatcher.")
-                return
+            # 准备创建参数
+            spawn_params = {
+                "role": role,
+                "agent_id": requested_id,
+                "dispatcher": self
+            }
+            
+            # 如果是 LLM 类型，则注入 LLM Engine
+            if agent_type == "llm":
+                if not self.default_llm:
+                    logger.error("[SYSTEM] SPAWN failed: No default LLM engine configured for 'llm' agent type.")
+                    return
+                spawn_params["llm_engine"] = self.default_llm
+                spawn_params["system_prompt"] = message.payload.get("prompt", "You are a helpful assistant.")
 
-            new_agent = AACPAgent(
-                role=role,
-                llm_engine=self.default_llm,
-                system_prompt=system_prompt,
-                dispatcher=self
-            )
-            
-            # 注册新 Agent
-            self.register_agent(new_agent.agent_id, new_agent.handle_message)
-            
-            # 回复发送者：成功孵化
-            reply = AACPMessage(
-                sender=self.SYSTEM_AGENT_ID,
-                receiver=message.sender,
-                intent=AACPIntent.INFORM,
-                payload={"status": "SPAWNED", "agent_id": new_agent.agent_id}
-            )
-            await self.send_message(reply)
-            logger.info(f"[SYSTEM] Spawned new agent: {new_agent.agent_id}")
+            try:
+                # 通过 Factory 实例化 Agent
+                new_agent = AGENT_FACTORY.create(agent_type, **spawn_params)
+                
+                # 注册新 Agent
+                self.register_agent(new_agent.agent_id, new_agent.handle_message)
+                
+                # 回复发送者：成功孵化
+                reply = AACPMessage(
+                    sender=self.SYSTEM_AGENT_ID,
+                    receiver=message.sender,
+                    intent=AACPIntent.INFORM,
+                    payload={"status": "SPAWNED", "agent_id": new_agent.agent_id}
+                )
+                await self.send_message(reply)
+                logger.info(f"[SYSTEM] Spawned new {agent_type} agent: {new_agent.agent_id}")
+            except Exception as e:
+                logger.error(f"[SYSTEM] SPAWN failed: {e}", exc_info=True)
+                return
 
         elif message.intent == AACPIntent.TERMINATE:
             target_agent_id = message.payload.get("agent_id")

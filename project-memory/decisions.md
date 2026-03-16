@@ -56,8 +56,23 @@
   - **防死循环**：通过显式的 NOOP 状态打破 Agent 与自身或他人的无限消息循环。
 
 ## 10. 系统内核：动态孵化 (Dynamic Spawning)
-- **决策**：`AegisDispatcher` 中的 `system@local` 代理通过 `SPAWN` 意图动态实例化 `AACPAgent` 类，而非仅注册简单的回调函数。
+- **决策**：`AegisDispatcher` 中的 `system@local` 代理通过 `SPAWN` 意图动态实例化 Agent 类，而非仅注册简单的回调函数。
 - **理由**：
-  - **对象化管理**：确保所有被孵化的 Agent 都继承 `AACPAgent` 的认知与记忆管理能力，而非孤立的函数。
+  - **对象化管理**：确保所有被孵化的 Agent 都具备完整的认知与记忆管理能力，而非孤立的函数。
   - **生命周期闭环**：配合 `TERMINATE` 意图，实现 Agent 的自动化入职与销毁流程。
+
+## 11. Agent 架构：协议 (Protocol) vs. 实现 (Class)
+- **决策**：坚持“协议优先”原则。任何符合 AACP 协议（能收发 AACPMessage）的实体在 AegisOS 视角下均视为 Agent。
+- **理由**：
+  - **多态性**：系统必须支持多种类型的实现，而不仅仅是 LLM 驱动。
+  - **效率与成本 (Efficiency & Cost)**：引入功能型 Agent (Stub/Functional) 处理高频系统任务（如监控、心跳），无需消耗 Token 且低延迟。
+  - **确定性与安全 (Determinism & Safety)**：关键系统路径（如资源销毁）应由逻辑确定的功能型 Agent 执行。
+  - **异构集成 (Heterogeneity)**：为未来 Phase 5 的 Go-Sidecar 跨语言通信奠定基础。
+
+## 12. 资源解耦：引入 AgentFactory
+- **决策**：将 Agent 实例化逻辑从 `AegisDispatcher` 中抽离，移至独立的 `AgentFactory`。
+- **理由**：
+  - **解耦内核**：Dispatcher 仅负责消息路由，Factory 负责对象构建，符合开闭原则 (Open-Closed Principle)。
+  - **动态扩展**：允许在运行时注册新的 Agent 类型，而无需修改 Dispatcher 核心代码。
+
 
