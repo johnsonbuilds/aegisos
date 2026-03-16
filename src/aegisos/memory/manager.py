@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 logger = logging.getLogger("MemoryManager")
 
 class MemoryItem(BaseModel):
-    """单条记忆条目"""
+    """A single memory item."""
     role: str
     content: str
     tokens: int = 0
@@ -13,8 +13,8 @@ class MemoryItem(BaseModel):
 
 class MemoryManager:
     """
-    负责 Agent 的认知记忆管理。
-    当前实现：基于消息轮数和 Token 计数的滑动窗口（热记忆）。
+    Responsible for Agent's cognitive memory management.
+    Current implementation: sliding window based on message rounds and token count (hot memory).
     """
     def __init__(
         self, 
@@ -25,16 +25,16 @@ class MemoryManager:
         self.max_messages = max_messages
         self.max_tokens = max_tokens
         
-        # 热记忆存储
+        # Hot memory storage
         self.history: List[MemoryItem] = []
         
-        # 如果提供了 system_prompt，它将作为永久记忆保留在最前面
+        # If system_prompt is provided, it will be kept at the beginning as a permanent memory.
         if system_prompt:
             self.history.append(MemoryItem(role="system", content=system_prompt, important=True))
 
     async def add_message(self, role: str, content: str, tokens: int = 0):
         """
-        向历史记录中添加一条消息。
+        Add a message to the history.
         """
         item = MemoryItem(role=role, content=content, tokens=tokens)
         self.history.append(item)
@@ -42,11 +42,11 @@ class MemoryManager:
 
     async def _enforce_limits(self):
         """
-        实施截断逻辑，确保历史不超出限制。
-        保留索引为 0 的 system prompt（如果存在）。
+        Implement truncation logic to ensure history does not exceed limits.
+        Keep the system prompt at index 0 (if it exists).
         """
-        # 1. 基于消息数量的截断
-        # 如果有 system prompt，我们保留 history[0]，从 history[1] 开始截断
+        # 1. Truncation based on message count
+        # If there's a system prompt, we keep history[0] and truncate starting from history[1].
         has_system = len(self.history) > 0 and self.history[0].role == "system"
         start_idx = 1 if has_system else 0
         
@@ -57,17 +57,17 @@ class MemoryManager:
             else:
                 break
 
-        # 2. TODO: 基于 Token 计数的精细截断 (需要集成 tiktoken)
-        # 目前仅实现简单的轮数截断作为 MVP
+        # 2. TODO: Fine-grained truncation based on token count (needs tiktoken integration)
+        # Currently only simple message round truncation is implemented as an MVP.
 
     def get_context(self) -> List[Dict[str, str]]:
         """
-        返回适合 LLM 消费的列表格式。
+        Return list format suitable for LLM consumption.
         """
         return [{"role": item.role, "content": item.content} for item in self.history]
 
     def clear(self):
-        """清空除 System Prompt 以外的所有历史"""
+        """Clear all history except for the System Prompt."""
         has_system = len(self.history) > 0 and self.history[0].role == "system"
         if has_system:
             self.history = [self.history[0]]

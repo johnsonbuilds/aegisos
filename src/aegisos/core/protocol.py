@@ -6,18 +6,18 @@ from datetime import datetime
 from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 class AACPIntent(str, Enum):
-    # 基础意图
+    # Basic intents
     REQUEST = "REQUEST"
     PROPOSE = "PROPOSE"
     INFORM = "INFORM"
     TASK_COMPLETE = "TASK_COMPLETE"
     ERROR = "ERROR"
     
-    # 系统级意图
-    SPAWN = "SPAWN"          # 创建/孵化 Agent
-    TERMINATE = "TERMINATE"  # 销毁/终止 Agent
+    # System-level intents
+    SPAWN = "SPAWN"          # Create/Spawn Agent
+    TERMINATE = "TERMINATE"  # Destroy/Terminate Agent
 
-# Agent URI 规范: {id}@{instance}
+# Agent URI specification: {id}@{instance}
 AGENT_URI_PATTERN = re.compile(r"^[a-zA-Z0-9_\-]+@[a-zA-Z0-9_\-]+$")
 
 class AACPMessage(BaseModel):

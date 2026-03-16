@@ -8,8 +8,8 @@ logger = logging.getLogger("StubAgent")
 
 class StubAgent:
     """
-    用于测试和逻辑验证的非 LLM 代理。
-    它不依赖 LLM 引擎，仅执行简单的固定逻辑或透传。
+    Non-LLM agent used for testing and logic verification.
+    It does not rely on an LLM engine, only executing simple fixed logic or pass-through.
     """
     def __init__(
         self, 
@@ -30,8 +30,8 @@ class StubAgent:
 
     async def handle_message(self, message: AACPMessage):
         """
-        StubAgent 的核心逻辑：仅记录日志。
-        具体的业务模拟通常在测试脚本中通过 Monkeypatch 或子类化来实现。
+        Core logic of StubAgent: only log records.
+        Specific business simulations are usually implemented in test scripts via Monkeypatch or subclassing.
         """
         logger.info(f"[StubAgent:{self.agent_id}] Received: {message.intent} from {message.sender}")
-        # 默认不做任何回复，除非在子类中覆盖
+        # No reply by default, unless overridden in a subclass

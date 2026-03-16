@@ -13,19 +13,19 @@ logger = logging.getLogger("AACPAgent")
 
 class AACPResponse(BaseModel):
     """
-    LLM 思考后返回的精简结构化输出模型。
-    用于指导 Agent 生成完整的 AACPMessage。
+    A streamlined structured output model returned after LLM reasoning.
+    Used to guide the Agent in generating a complete AACPMessage.
     """
-    receiver: Optional[str] = Field(None, description="目标接收者的 URI 或 'BROADCAST'。如果为 None 则不发送消息。")
-    intent: AACPIntent = Field(default=AACPIntent.INFORM, description="消息意图 (REQUEST, INFORM, REPLY, etc.)")
-    action: Optional[AACPAction] = Field(None, description="标准 Action (可选)。如果提供，会填入 payload['action']")
-    payload: Dict[str, Any] = Field(default_factory=dict, description="具体的业务数据或指令内容")
-    context_pointer: Optional[str] = Field(None, description="Workspace 中的文件路径（如需传递大数据）")
-    thought: Optional[str] = Field(None, description="Agent 内部的思考过程 (Chain of Thought)")
+    receiver: Optional[str] = Field(None, description="URI of the target receiver or 'BROADCAST'. If None, no message is sent.")
+    intent: AACPIntent = Field(default=AACPIntent.INFORM, description="Message intent (REQUEST, INFORM, REPLY, etc.)")
+    action: Optional[AACPAction] = Field(None, description="Standard Action (optional). If provided, it will be filled into payload['action']")
+    payload: Dict[str, Any] = Field(default_factory=dict, description="Specific business data or instruction content")
+    context_pointer: Optional[str] = Field(None, description="File path in the Workspace (for passing large data)")
+    thought: Optional[str] = Field(None, description="Internal reasoning process of the Agent (Chain of Thought)")
 
 class AACPAgent:
     """
-    具备认知能力的 Agent 基类。
+    Base class for Agents with cognitive capabilities.
     """
     def __init__(
         self, 
@@ -37,7 +37,7 @@ class AACPAgent:
         workspace: Optional[Any] = None,
         max_memory_messages: int = 15
     ):
-        # 如果未提供 agent_id，则根据 role 和 uuid 生成
+        # If agent_id is not provided, generate it based on role and uuid
         if not agent_id:
             uid = str(uuid.uuid4())[:8]
             self.agent_id = f"{role}_{uid}@{CONFIG.instance_id}"
@@ -53,30 +53,30 @@ class AACPAgent:
         self.dispatcher = dispatcher
         self.workspace = workspace
         
-        # 懒加载 SandboxRunner
+        # Lazy load SandboxRunner
         from aegisos.core.sandbox import SandboxRunner
         self.sandbox = SandboxRunner(str(workspace.root_path)) if workspace else None
         
-        # 使用 MemoryManager 管理热记忆
+        # Use MemoryManager to manage hot memory
         self.memory = MemoryManager(
             max_messages=max_memory_messages, 
             system_prompt=system_prompt
         )
 
     def register_to(self, dispatcher: Any):
-        """将自己注册到指定的 Dispatcher"""
+        """Register itself to the specified Dispatcher."""
         self.dispatcher = dispatcher
         dispatcher.register_agent(self.agent_id, self.handle_message)
         logger.info(f"Agent {self.agent_id} registered to dispatcher.")
 
     async def handle_message(self, message: AACPMessage):
         """
-        处理传入的 AACP 消息：记录历史并触发思考。
+        Process incoming AACP messages: record history and trigger reasoning.
         """
         logger.info(f"[{self.agent_id}] Received message from {message.sender}: {message.intent}")
         
-        # 将 AACP 消息转为 LLM 可理解的文本
-        # 注意：这里我们只记录 payload，大数据通过 context_pointer 异步处理
+        # Convert AACP message to text understandable by LLM
+        # Note: Here we only record the payload; large data is handled asynchronously via context_pointer
         msg_str = (
             f"FROM: {message.sender}\n"
             f"INTENT: {message.intent}\n"
@@ -85,45 +85,45 @@ class AACPAgent:
         if message.context_pointer:
             msg_str += f"CONTEXT_POINTER: {message.context_pointer}\n"
 
-        # 记录到记忆中
+        # Record to memory
         await self.memory.add_message(role="user", content=msg_str)
         
-        # 自动触发反应
+        # Automatically trigger a reaction
         await self.think()
 
     async def think(self):
         """
-        核心思考循环：调用 LLM 决定下一步动作。
+        Core reasoning loop: call LLM to decide the next action.
         """
         logger.debug(f"[{self.agent_id}] Thinking...")
         
         try:
-            # 强制 Structured Outputs
+            # Enforce Structured Outputs
             response: AACPResponse = await self.llm.generate(
                 messages=self.memory.get_context(),
                 response_model=AACPResponse
             )
             
-            # 记录 Agent 自己的思考和动作
+            # Record the Agent's own reasoning and actions
             action_desc = f"THOUGHT: {response.thought}\n"
             if response.receiver:
                 action_desc += f"ACTION: {response.intent} to {response.receiver}"
             else:
                 action_desc += "ACTION: No further action required."
                 
-            # 记录助手回复到记忆
+            # Record the assistant's reply to memory
             await self.memory.add_message(role="assistant", content=action_desc)
 
             if not response.receiver:
                 logger.info(f"[{self.agent_id}] No action decided.")
                 return
 
-            # 如果 LLM 指定了标准 Action，将其注入 payload
+            # If the LLM specifies a standard Action, inject it into the payload
             if response.action:
                 response.payload["action"] = response.action.value
 
-            # --- 特殊逻辑: 自执行的 Reflexion 闭环 ---
-            # 如果 Agent 决定向自己发送一个 CODE_EXEC 类型的 REQUEST，则直接在沙箱运行
+            # --- Special Logic: Self-executing Reflexion loop ---
+            # If the Agent decides to send a REQUEST of type CODE_EXEC to itself, run it directly in the sandbox
             is_self_exec = (
                 response.receiver == self.agent_id and 
                 response.intent == AACPIntent.REQUEST and 
@@ -135,7 +135,7 @@ class AACPAgent:
                 code = response.payload.get("code", "")
                 if self.sandbox and code:
                     result = await self.sandbox.run_python(code)
-                    # 将结果作为反馈存入记忆
+                    # Store the result in memory as feedback
                     result_msg = (
                         f"EXECUTION_RESULT:\n"
                         f"EXIT_CODE: {result.exit_code}\n"
@@ -143,7 +143,7 @@ class AACPAgent:
                         f"STDERR: {result.stderr}\n"
                     )
                     await self.memory.add_message(role="user", content=result_msg)
-                    # 递归触发思考，直到 Agent 认为任务完成
+                    # Recursively trigger reasoning until the Agent considers the task complete
                     await self.think()
                 else:
                     logger.error(f"[{self.agent_id}] Sandbox not available or code is empty.")
@@ -152,7 +152,7 @@ class AACPAgent:
 
             logger.info(f"[{self.agent_id}] Decision: {response.intent} -> {response.receiver}")
 
-            # 构造并发送真正的 AACPMessage
+            # Construct and send the actual AACPMessage
             out_msg = AACPMessage(
                 sender=self.agent_id,
                 receiver=response.receiver,
@@ -168,7 +168,7 @@ class AACPAgent:
                 
         except Exception as e:
             logger.error(f"[{self.agent_id}] Thinking failed: {e}", exc_info=True)
-            # 发送错误消息反馈
+            # Send error message feedback
             if self.dispatcher:
                 error_msg = AACPMessage(
                     sender=self.agent_id,

@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 logger = logging.getLogger("SandboxRunner")
 
 class ExecutionResult(BaseModel):
-    """代码执行结果"""
+    """Code execution result."""
     exit_code: int
     stdout: str
     stderr: str
@@ -17,32 +17,32 @@ class ExecutionResult(BaseModel):
 
 class SandboxRunner:
     """
-    基础安全沙箱运行器。
-    Phase 2: 基于受限子进程执行 Python 代码。
+    Basic security sandbox runner.
+    Phase 2: Execute Python code based on restricted subprocesses.
     """
     def __init__(self, workspace_path: str):
-        # 确保是绝对路径
+        # Ensure it is an absolute path
         self.workspace_path = os.path.abspath(workspace_path)
 
     async def run_python(self, code: str, timeout: int = 10) -> ExecutionResult:
         """
-        在受限环境中执行 Python 代码。
+        Execute Python code in a restricted environment.
         """
-        # 为了安全，我们不直接在命令行传代码，而是写入临时文件
+        # For security, we don't pass code directly on the command line; instead, we write it to a temporary file.
         temp_file = os.path.join(self.workspace_path, "_sandbox_temp.py")
         
         try:
             with open(temp_file, "w") as f:
                 f.write(code)
 
-            # 启动受限子进程
-            # TODO: 后续通过环境变量、cgroup 或 seccomp 进一步加固
+            # Start a restricted subprocess
+            # TODO: Further harden via environment variables, cgroup, or seccomp in the future.
             process = await asyncio.create_subprocess_exec(
                 sys.executable, temp_file,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 cwd=self.workspace_path,
-                env={"PYTHONPATH": self.workspace_path} # 仅允许访问工作区
+                env={"PYTHONPATH": self.workspace_path} # Only allow access to the workspace
             )
 
             try:
@@ -71,6 +71,6 @@ class SandboxRunner:
                 error=str(e)
             )
         finally:
-            # 无论成功失败，清理临时文件
+            # Clean up the temporary file regardless of success or failure
             if os.path.exists(temp_file):
                 os.remove(temp_file)

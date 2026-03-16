@@ -4,33 +4,33 @@ from pydantic import BaseModel, Field
 
 class AACPAction(str, Enum):
     """
-    AegisOS 标准动作集。
-    这些动作通常作为 REQUEST 意图的 payload["action"] 字段。
+    AegisOS standard action set.
+    These actions are typically used as the payload["action"] field for REQUEST intent.
     """
-    # 执行类 (Execution)
-    CODE_EXEC = "core.exec.code"        # 执行代码 (通用)
-    PYTHON_RUN = "core.exec.python"    # 运行 Python 脚本
+    # Execution
+    CODE_EXEC = "core.exec.code"        # Execute code (general)
+    PYTHON_RUN = "core.exec.python"    # Run Python script
     
-    # 存储类 (Storage)
-    FILE_READ = "core.fs.read"         # 读取文件
-    FILE_WRITE = "core.fs.write"       # 写入文件
+    # Storage
+    FILE_READ = "core.fs.read"         # Read file
+    FILE_WRITE = "core.fs.write"       # Write file
     
-    # 认知类 (Cognition)
-    WEB_SEARCH = "core.cog.web_search" # 网页搜索
-    MEM_RETRIEVE = "core.cog.mem_get"  # 检索长期记忆
+    # Cognition
+    WEB_SEARCH = "core.cog.web_search" # Web search
+    MEM_RETRIEVE = "core.cog.mem_get"  # Retrieve long-term memory
 
 class ActionPayload(BaseModel):
-    """所有 Action Payload 的基类"""
+    """Base class for all Action Payloads."""
     pass
 
 class CodeExecPayload(ActionPayload):
-    """core.exec.code 的参数规范"""
-    language: str = Field(..., description="编程语言，如 'python', 'bash'")
-    code: str = Field(..., description="待执行的源代码")
-    timeout: int = Field(10, description="执行超时时间(秒)")
+    """Parameter specification for core.exec.code."""
+    language: str = Field(..., description="Programming language, such as 'python', 'bash'")
+    code: str = Field(..., description="Source code to be executed")
+    timeout: int = Field(10, description="Execution timeout (seconds)")
 
-# 动作到 Payload 模型映射 (用于自动校验)
+# Action to Payload model mapping (for automatic validation)
 ACTION_SCHEMAS: Dict[AACPAction, Type[ActionPayload]] = {
     AACPAction.CODE_EXEC: CodeExecPayload,
-    AACPAction.PYTHON_RUN: CodeExecPayload, # 复用
+    AACPAction.PYTHON_RUN: CodeExecPayload, # Reuse
 }

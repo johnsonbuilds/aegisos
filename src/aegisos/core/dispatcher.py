@@ -5,7 +5,7 @@ from aegisos.core.protocol import AACPMessage, AACPIntent
 from aegisos.core.llm import BaseLLMEngine
 from aegisos.core.config import CONFIG, NetworkMode
 
-# 配置日志
+# Configure logging
 logging.basicConfig(level=CONFIG.log_level, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("AegisDispatcher")
 
@@ -20,12 +20,12 @@ class AegisDispatcher:
         self.default_llm = default_llm
         self.workspace = workspace
         
-        # 注册系统代理
+        # Register system agent
         self.register_agent(self.SYSTEM_AGENT_ID, self._system_agent_callback)
 
     def register_agent(self, agent_id: str, callback: Callable[[AACPMessage], Coroutine[Any, Any, None]]):
         """
-        注册 Agent 及其异步回调函数。
+        Register an Agent and its asynchronous callback function.
         """
         if agent_id in self.agents:
             logger.warning(f"Agent {agent_id} is already registered. Overwriting.")
@@ -33,7 +33,7 @@ class AegisDispatcher:
         logger.info(f"Agent '{agent_id}' registered.")
 
     def unregister_agent(self, agent_id: str):
-        """取消注册 Agent"""
+        """Unregister an Agent."""
         if agent_id in self.agents:
             if agent_id == self.SYSTEM_AGENT_ID:
                 logger.error("Cannot unregister system agent!")
@@ -43,13 +43,13 @@ class AegisDispatcher:
 
     async def send_message(self, message: AACPMessage):
         """
-        向队列发送 AACP 消息。
+        Send an AACP message to the queue.
         """
         await self.queue.put(message)
         logger.debug(f"Message {message.message_id} from {message.sender} to {message.receiver} queued.")
 
     async def start(self):
-        """启动事件循环"""
+        """Start the event loop."""
         if self._is_running:
             return
         
@@ -58,7 +58,7 @@ class AegisDispatcher:
         logger.info(f"AegisDispatcher started on instance: {CONFIG.instance_id}")
 
     async def stop(self):
-        """停止事件循环"""
+        """Stop the event loop."""
         self._is_running = False
         if self._loop_task:
             self._loop_task.cancel()
@@ -69,7 +69,7 @@ class AegisDispatcher:
         logger.info("AegisDispatcher stopped.")
 
     async def _event_loop(self):
-        """核心事件处理循环"""
+        """Core event processing loop."""
         while self._is_running:
             try:
                 message = await self.queue.get()
@@ -81,7 +81,7 @@ class AegisDispatcher:
                 logger.error(f"Error in dispatcher event loop: {e}", exc_info=True)
 
     async def _route_message(self, message: AACPMessage):
-        """将消息分发给目标 Agent"""
+        """Dispatch message to the target Agent."""
         target = message.receiver
         
         if target == "BROADCAST":
@@ -93,14 +93,14 @@ class AegisDispatcher:
         elif target in self.agents:
             await self._call_agent(target, self.agents[target], message)
         elif "@" in target:
-            # 识别远程 URI: {role}_{uuid}@{instance_id}
+            # Identify remote URI: {role}_{uuid}@{instance_id}
             await self.send_to_remote(target, message)
         else:
             logger.error(f"Target Agent '{target}' not found. Message {message.message_id} dropped.")
 
     async def send_to_remote(self, receiver_uri: str, message: AACPMessage):
         """
-        跨机通信抽象层 (Egress Gateway)
+        Cross-instance communication abstraction layer (Egress Gateway).
         """
         try:
             _, instance_id = receiver_uri.split("@")
@@ -109,11 +109,12 @@ class AegisDispatcher:
             return
 
         if instance_id == CONFIG.instance_id or instance_id == "local":
-            # 如果 instance_id 匹配当前实例，理论上应该在 self.agents 中，能走到这里说明未注册
+            # If instance_id matches current instance, it should theoretically be in self.agents;
+            # reaching here means it's not registered.
             logger.warning(f"Local delivery failed for {receiver_uri}, agent not registered.")
             return
 
-        # 根据配置的网络模式进行转发
+        # Forward based on configured network mode
         if CONFIG.network_mode == NetworkMode.LOCAL:
             logger.warning(f"Network mode is LOCAL. Cannot send to remote instance: {instance_id}")
         elif CONFIG.network_mode == NetworkMode.TAILSCALE:
@@ -126,7 +127,7 @@ class AegisDispatcher:
             logger.error(f"Unsupported network mode: {CONFIG.network_mode}")
 
     async def _call_agent(self, name: str, callback: Callable, message: AACPMessage):
-        """执行 Agent 回调"""
+        """Execute Agent callback."""
         try:
             await callback(message)
         except Exception as e:
@@ -134,7 +135,7 @@ class AegisDispatcher:
 
     async def _system_agent_callback(self, message: AACPMessage):
         """
-        内置系统代理回调，处理 SPAWN 和 TERMINATE 请求。
+        Built-in system agent callback, handling SPAWN and TERMINATE requests.
         """
         from aegisos.core.factory import AGENT_FACTORY
 
@@ -145,15 +146,15 @@ class AegisDispatcher:
             role = message.payload.get("role", "assistant")
             requested_id = message.payload.get("agent_id")
             
-            # 准备创建参数
+            # Prepare creation parameters
             spawn_params = {
                 "role": role,
                 "agent_id": requested_id,
                 "dispatcher": self,
-                "workspace": self.workspace # 传递工作区
+                "workspace": self.workspace # Pass workspace
             }
             
-            # 如果是 LLM 类型，则注入 LLM Engine
+            # If it is of type LLM, inject LLM Engine
             if agent_type == "llm":
                 if not self.default_llm:
                     logger.error("[SYSTEM] SPAWN failed: No default LLM engine configured for 'llm' agent type.")
@@ -162,13 +163,13 @@ class AegisDispatcher:
                 spawn_params["system_prompt"] = message.payload.get("prompt", "You are a helpful assistant.")
 
             try:
-                # 通过 Factory 实例化 Agent
+                # Instantiate Agent through Factory
                 new_agent = AGENT_FACTORY.create(agent_type, **spawn_params)
                 
-                # 注册新 Agent
+                # Register new Agent
                 self.register_agent(new_agent.agent_id, new_agent.handle_message)
                 
-                # 回复发送者：成功孵化
+                # Reply to sender: success
                 reply = AACPMessage(
                     sender=self.SYSTEM_AGENT_ID,
                     receiver=message.sender,
