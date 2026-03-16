@@ -12,12 +12,13 @@ logger = logging.getLogger("AegisDispatcher")
 class AegisDispatcher:
     SYSTEM_AGENT_ID = "system@local"
 
-    def __init__(self, default_llm: Optional[BaseLLMEngine] = None):
+    def __init__(self, default_llm: Optional[BaseLLMEngine] = None, workspace: Optional[Any] = None):
         self.agents: Dict[str, Callable[[AACPMessage], Coroutine[Any, Any, None]]] = {}
         self.queue: asyncio.Queue[AACPMessage] = asyncio.Queue()
         self._is_running = False
         self._loop_task: Optional[asyncio.Task] = None
         self.default_llm = default_llm
+        self.workspace = workspace
         
         # 注册系统代理
         self.register_agent(self.SYSTEM_AGENT_ID, self._system_agent_callback)
@@ -148,7 +149,8 @@ class AegisDispatcher:
             spawn_params = {
                 "role": role,
                 "agent_id": requested_id,
-                "dispatcher": self
+                "dispatcher": self,
+                "workspace": self.workspace # 传递工作区
             }
             
             # 如果是 LLM 类型，则注入 LLM Engine

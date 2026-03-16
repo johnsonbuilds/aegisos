@@ -13,7 +13,7 @@ class AACPIntent(str, Enum):
     TASK_COMPLETE = "TASK_COMPLETE"
     ERROR = "ERROR"
     
-    # 系统级意图 (新增)
+    # 系统级意图
     SPAWN = "SPAWN"          # 创建/孵化 Agent
     TERMINATE = "TERMINATE"  # 销毁/终止 Agent
 

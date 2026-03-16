@@ -4,6 +4,7 @@ import uuid
 from typing import List, Dict, Any, Optional, Type, Union
 from pydantic import BaseModel, Field
 from aegisos.core.protocol import AACPMessage, AACPIntent
+from aegisos.core.actions import AACPAction
 from aegisos.core.llm import BaseLLMEngine
 from aegisos.core.config import CONFIG
 from aegisos.memory.manager import MemoryManager
@@ -17,6 +18,7 @@ class AACPResponse(BaseModel):
     """
     receiver: Optional[str] = Field(None, description="目标接收者的 URI 或 'BROADCAST'。如果为 None 则不发送消息。")
     intent: AACPIntent = Field(default=AACPIntent.INFORM, description="消息意图 (REQUEST, INFORM, REPLY, etc.)")
+    action: Optional[AACPAction] = Field(None, description="标准 Action (可选)。如果提供，会填入 payload['action']")
     payload: Dict[str, Any] = Field(default_factory=dict, description="具体的业务数据或指令内容")
     context_pointer: Optional[str] = Field(None, description="Workspace 中的文件路径（如需传递大数据）")
     thought: Optional[str] = Field(None, description="Agent 内部的思考过程 (Chain of Thought)")
@@ -32,6 +34,7 @@ class AACPAgent:
         system_prompt: str,
         agent_id: Optional[str] = None,
         dispatcher: Optional[Any] = None,
+        workspace: Optional[Any] = None,
         max_memory_messages: int = 15
     ):
         # 如果未提供 agent_id，则根据 role 和 uuid 生成
@@ -48,6 +51,11 @@ class AACPAgent:
         self.llm = llm_engine
         self.system_prompt = system_prompt
         self.dispatcher = dispatcher
+        self.workspace = workspace
+        
+        # 懒加载 SandboxRunner
+        from aegisos.core.sandbox import SandboxRunner
+        self.sandbox = SandboxRunner(str(workspace.root_path)) if workspace else None
         
         # 使用 MemoryManager 管理热记忆
         self.memory = MemoryManager(
@@ -109,6 +117,38 @@ class AACPAgent:
             if not response.receiver:
                 logger.info(f"[{self.agent_id}] No action decided.")
                 return
+
+            # 如果 LLM 指定了标准 Action，将其注入 payload
+            if response.action:
+                response.payload["action"] = response.action.value
+
+            # --- 特殊逻辑: 自执行的 Reflexion 闭环 ---
+            # 如果 Agent 决定向自己发送一个 CODE_EXEC 类型的 REQUEST，则直接在沙箱运行
+            is_self_exec = (
+                response.receiver == self.agent_id and 
+                response.intent == AACPIntent.REQUEST and 
+                (response.payload.get("action") in [AACPAction.CODE_EXEC, AACPAction.PYTHON_RUN])
+            )
+
+            if is_self_exec:
+                logger.info(f"[{self.agent_id}] Triggering self-execution (Reflexion loop).")
+                code = response.payload.get("code", "")
+                if self.sandbox and code:
+                    result = await self.sandbox.run_python(code)
+                    # 将结果作为反馈存入记忆
+                    result_msg = (
+                        f"EXECUTION_RESULT:\n"
+                        f"EXIT_CODE: {result.exit_code}\n"
+                        f"STDOUT: {result.stdout}\n"
+                        f"STDERR: {result.stderr}\n"
+                    )
+                    await self.memory.add_message(role="user", content=result_msg)
+                    # 递归触发思考，直到 Agent 认为任务完成
+                    await self.think()
+                else:
+                    logger.error(f"[{self.agent_id}] Sandbox not available or code is empty.")
+                return
+            # ------------------------------------
 
             logger.info(f"[{self.agent_id}] Decision: {response.intent} -> {response.receiver}")
 

@@ -26,7 +26,8 @@
 ### 2.4 AACP (Agent-to-Agent Communication Protocol)
 - **格式**：JSON (Pydantic 模型)。
 - **字段**：`message_id`, `timestamp`, `sender`, `receiver`, `intent`, `payload`, `context_pointer`。
-- **意图(Intent)**：REQUEST, PROPOSE, INFORM, TASK_COMPLETE, ERROR, SPAWN, TERMINATE。
+- **通信原语 (Intent)**: REQUEST, PROPOSE, INFORM, TASK_COMPLETE, ERROR, SPAWN, TERMINATE。
+- **业务动作 (Action)**: 业务逻辑通过 `payload["action"]` 定义，并由 `AACPAction` 枚举（如 `core.exec.*`, `core.fs.*`）规范化，实现协议层与业务层的完全解耦。
 
 ### 2.5 OpenClaw Compatibility Layer (兼容层)
 - 负责自动解析 OpenClaw 的第三方 `skill.md` 市场生态。

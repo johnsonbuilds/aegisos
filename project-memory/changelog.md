@@ -1,5 +1,19 @@
 # AegisOS Changelog
 
+## [0.1.3] - 2026-03-16
+### Added
+- **Standard Actions**: 引入 `src/aegisos/core/actions.py`，定义了标准动作枚举 `AACPAction`（如 `core.exec.code`, `core.fs.read` 等）。
+- **Action Payload Schema**: 为标准动作引入了 Pydantic 校验基类 `ActionPayload`。
+
+### Changed
+- **AACP Protocol Refactor**: 
+    - 移除了 `AACPIntent` 中不合理的 `CODE_EXEC` 和 `CODE_RESULT`。
+    - 坚持“协议原语与业务负载解耦”原则。
+- **AACPAgent Intelligence Upgrade**: 
+    - `AACPResponse` 现在支持 `action` 字段。
+    - 实现了 `action` 到 `payload["action"]` 的自动注入机制。
+    - 重构了 `Reflexion` 自反思逻辑，使其基于标准 `REQUEST` + `AACPAction.CODE_EXEC` 触发。
+
 ## [0.1.2] - 2026-03-13
 ### Added
 - **Dynamic Spawning**: `AegisDispatcher` (system@local) 现在支持通过 `SPAWN` 意图动态实例化 `AACPAgent`。

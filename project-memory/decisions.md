@@ -75,4 +75,12 @@
   - **解耦内核**：Dispatcher 仅负责消息路由，Factory 负责对象构建，符合开闭原则 (Open-Closed Principle)。
   - **动态扩展**：允许在运行时注册新的 Agent 类型，而无需修改 Dispatcher 核心代码。
 
+## 13. 语义层级解耦：Intent vs. Action
+- **决策**：`AACPIntent` 仅描述通信原语（Request/Reply/Inform），具体的业务操作（如执行代码、读写文件）封装在 `payload["action"]` 中并由 `AACPAction` 枚举规范。
+- **理由**：
+  - **正交性 (Orthogonality)**：防止 `AACPIntent` 枚举随着业务能力的增加而无限膨胀。
+  - **通用性**：使 AACP 成为真正的“元协议”，可适配任何类型的 Agent 协作，而不仅仅是代码执行。
+  - **扩展性**：通过命名空间化的 Action (如 `core.exec.*`) 实现更细粒度的权限控制和路由转发。
+
+
 
