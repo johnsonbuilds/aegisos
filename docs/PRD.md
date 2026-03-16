@@ -1,75 +1,71 @@
-# 产品定义
+# Product Definition
 
-# 1. 产品概述与定位
+# 1. Product Overview and Positioning
 
-- **产品名称**：AegisOS (暂定名)
-- **产品定位**：新一代安全、高效、原生支持多智能体协同的 AI Agent 操作系统。
-- **核心愿景**：完成从“聊天机器人套壳（Chatbot Wrapper）”到“智能体操作系统（Agentic OS）”的范式转移，并在保留全天候、多渠道自主执行体验的同时，彻底解决上一代产品（如 OpenClaw）存在的严重安全隐患和资源过度消耗问题。
+- **Product Name**: AegisOS (provisional name)
+- **Product Positioning**: A next-generation, secure, efficient AI Agent Operating System with native support for multi-agent collaboration.
+- **Core Vision**: To complete the paradigm shift from "Chatbot Wrappers" to an "Agentic OS." AegisOS aims to provide a 24/7, multi-channel autonomous execution experience while thoroughly resolving the severe security risks and excessive resource consumption found in previous generation products (e.g., OpenClaw).
 
-# 2. 核心痛点与解决策略
+# 2. Core Pain Points and Resolution Strategies
 
-AegisOS 主要针对现有主流 Agent 产品的三大致命缺陷进行重构：
+AegisOS is specifically designed to refactor the three fatal flaws of existing mainstream Agent products:
 
-| **现有痛点 (以 OpenClaw 为例)** | **AegisOS 解决策略** |
+| **Existing Pain Points (e.g., OpenClaw)** | **AegisOS Resolution Strategy** |
 | --- | --- |
-| **高危安全漏洞**：过度依赖本地 Root 权限，易受提示词注入攻击，导致恶意操作或封号。 | **零信任与 Serverless 沙箱**：弃用本地宿主机执行，技能（Skills）在云端 WebAssembly 或 Firecracker VM 等用完即毁的沙箱中运行。 |
-| **极高维护门槛**：常驻内存过高，非开发者难以配置后台 7x24 小时稳定运行。 | **架构轻量化**：剥离高耗能的 GUI 自动化与无头浏览器，转向纯 API / CLI 协议交互。 |
-| **不可控的自主执行**：AI 越权进行高风险操作（转账、大规模爬虫等）。 | **HITL 细粒度权限管控**：底层植入拦截器，敏感操作必须通过即时通讯工具发送结构化卡片（Approve/Deny）由人类授权。 |
+| **High-Risk Security Vulnerabilities**: Over-reliance on local Root permissions, susceptible to prompt injection attacks leading to malicious operations or account bans. | **Zero-Trust and Serverless Sandboxing**: Abandon local host execution; skills run in disposable sandboxes like cloud-based WebAssembly or Firecracker VMs. |
+| **High Maintenance Barrier**: Excessive memory footprint; difficult for non-developers to configure for stable 24/7 background operation. | **Lightweight Architecture**: Decouple high-energy-consumption GUI automation and headless browsers in favor of pure API/CLI protocol interactions. |
+| **Uncontrolled Autonomous Execution**: AI performing unauthorized high-risk operations (e.g., transfers, large-scale scraping). | **HITL Fine-Grained Permission Control**: Low-level interceptors require humans to authorize sensitive operations via structured cards (Approve/Deny) sent through IM tools. |
 
-# 3. 核心功能与引擎架构
+# 3. Core Functions and Engine Architecture
 
-AegisOS 的底层引擎将深度整合业界前沿的开源项目，构建强大的专业能力模块：
+The underlying engine of AegisOS will deeply integrate cutting-edge open-source projects to build powerful professional modules:
 
-- **动作转译层 (集成 CLI-Anything)**：放弃脆弱的视觉模型模拟点击。将开源 GUI 软件封装为具备确定性 JSON 输出的 CLI 工具，大模型通过输出安全的 JSON 命令，实现无头（Headless）且精准的软件调用。
-- **专属编程大脑 (集成 OpenCode)**：作为云端沙箱中的独立编程智能体，专门负责生成、校验和测试新技能代码，确保 Agent 自我进化的代码质量与安全性。
-- **安全视觉与阅读感官 (集成 Firecrawl)**：替代高耗能的内置浏览器。仅通过传入 URL 即可获取剥离了恶意脚本、LLM 友好的纯净 Markdown 或结构化数据，大幅降低被提示词注入的风险。
-- **重型数据采集装甲 (可选集成 Scrapling)**：部署极强适应性的爬虫框架，自动绕过反爬机制并适应 UI 更新，保障后台 7x24 小时隐蔽抓取任务不中断。
+- **Action Translation Layer (Integrated with CLI-Anything)**: Abandon fragile visual model click simulations. Encapsulate open-source GUI software as CLI tools with deterministic JSON output. LLMs call software accurately and headlessly by outputting secure JSON commands.
+- **Dedicated Programming Brain (Integrated with OpenCode)**: An independent programming Agent in a cloud sandbox, responsible for generating, validating, and testing new skill code to ensure the quality and safety of self-evolving Agent code.
+- **Secure Vision and Reading Senses (Integrated with Firecrawl)**: Replace energy-intensive built-in browsers. Obtain clean, LLM-friendly Markdown or structured data from URLs without malicious scripts, significantly reducing prompt injection risks.
+- **Heavy Data Collection Armor (Optional Integration with Scrapling)**: Deploy a highly adaptive scraping framework to automatically bypass anti-scraping mechanisms and adapt to UI updates, ensuring uninterrupted 24/7 background scraping.
 
-# 4. 关键技术方案 (解决 OS 本质与成本瓶颈)
+# 4. Key Technical Solutions (Addressing OS Essence and Cost Bottlenecks)
 
-### 4.1 生态继承与沙箱降级运行
+### 4.1 Ecosystem Inheritance and Sandbox Downgraded Execution
 
-- **OpenClaw 兼容层**：系统内置转换器，自动解析 OpenClaw 庞大的第三方 `skill.md` 市场生态。
-- **安全降级**：加载的外部代码强制注入云端 Serverless 沙箱或 Docker 容器执行，彻底隔离破坏风险，实现首日生态即插即用。
+- **OpenClaw Compatibility Layer**: Built-in converter to automatically parse OpenClaw's vast third-party `skill.md` ecosystem.
+- **Safety Downgrade**: Mandatory injection of external code into cloud Serverless sandboxes or Docker containers for execution, isolating risks and achieving day-one plug-and-play compatibility.
 
-### 4.2 极简 Token 消耗与记忆突破
+### 4.2 Minimal Token Consumption and Memory Breakthrough
 
-为了突破最大输入 Token 限制并实现无限制的上下文对话，AegisOS 将采用三级存储引擎与路由机制：
+To break through input Token limits and achieve unlimited contextual dialogue, AegisOS will utilize a three-tier storage engine and routing mechanism:
 
-- **动态技能路由**：使用极小模型（如 Llama-3-8B）对意图进行分类，每次请求仅在主模型 Prompt 中挂载最相关的 2-3 个技能说明，缩减 90% 的上下文占用。
-- **冷热记忆分离机制**：
-- **热记忆（RAM）**：只保留最近的 5 轮对话，以及当前任务的“状态大纲（State Summary）”。
-- **冷记忆（硬盘）**：超过 5 轮的对话，由后台一个小模型异步总结成“事实（Facts）”和“偏好（Preferences）”，存入向量数据库（Vector DB）。只有当用户提到历史事件时，才通过 RAG（检索增强生成）拉取特定片段。
-- **全局提示词缓存**：全面启用底层模型 API 的 Prompt Caching，缓存静态的基础系统设定与高频技能。
+- **Dynamic Skill Routing**: Use small models (e.g., Llama-3-8B) for intent classification. Each request mounts only the 2-3 most relevant skill descriptions in the main model's prompt, reducing context usage by 90%.
+- **Separation of Hot and Cold Memory**:
+    - **Hot Memory (RAM)**: Retains only the 5 most recent dialogue rounds and the current task's "State Summary."
+    - **Cold Memory (Disk)**: Dialogues beyond 5 rounds are asynchronously summarized into "Facts" and "Preferences" by a small model and stored in a Vector DB. RAG (Retrieval-Augmented Generation) retrieves specific fragments only when historical events are mentioned.
+- **Global Prompt Caching**: Fully enable Prompt Caching for the underlying model API to cache static system settings and high-frequency skills.
 
-### 4.3 多 Agent 原生协作总线
+### 4.3 Native Multi-Agent Collaboration Bus
 
-不再依赖冗长的自然语言进行 Agent 间沟通，而是建立标准化的数字“公司组织”，具体设计如下：
+Agents communicate through standardized digital "corporate organizations" instead of long-winded natural language:
 
-### A. 标准化通信协议 (AACP) 的设计
+### A. Standardized Communication Protocol (AACP) Design
 
-我们不再让 Agent 之间像人类那样用毫无边际的自然语言去“聊天”（那又会导致 Token 爆炸），而是设计一套极简的 JSON 格式协议。每个消息包含：
+We replace open-ended natural language "chatting" between Agents (which causes Token explosions) with a minimalist JSON protocol. Each message includes:
 
-- header: 包含 sender（发送方）, receiver（接收方，可以是某个Agent，也可以是公共频道）, intent（意图：如 Request, Propose, Inform, Reject, Task_Complete）。
-- payload: 结构化的任务描述或执行结果。
-- context_pointer: **这是关键！Agent 之间传递的不是长篇大论的文件，而是指针（URL 或 文件路径）**。
+- **header**: Contains `sender`, `receiver` (an Agent or public channel), and `intent` (e.g., Request, Propose, Inform, Reject, Task_Complete).
+- **payload**: Structured task descriptions or execution results.
+- **context_pointer**: **Crucial!** Agents pass pointers (URLs or file paths) rather than lengthy documents.
 
-### B. 引入“黑板模式（Blackboard System）”与“共享工作区”
+### B. Introduction of "Blackboard System" and "Shared Workspace"
 
-人类团队协作时，并不是通过微信把几百兆的代码和文档传来传去，而是**共享一个 Git 仓库或飞书文档**。
+Human teams collaborate by **sharing Git repositories or cloud documents** rather than sending hundreds of megabytes of code and docs back and forth. AegisOS creates a "Shared Workspace" for each project.
 
-AegisOS 也会为每个项目创建一个“Shared Workspace”（共享工作区）。
+- For example, a "Research Agent" writes findings to `research.md` in the workspace.
+- Upon completion, it sends a standard protocol message to the "Writing Agent": `{"intent": "Task_Complete", "pointer": "/workspace/research.md"}`.
+- The Writing Agent then reads the file directly from the workspace.
 
-- 比如，“调研 Agent”把查到的资料写进工作区的 research.md。
-- 调研完成后，它发一条标准协议消息给“写作 Agent”：{"intent": "Task_Complete", "pointer": "/workspace/research.md"}。
-- 写作 Agent 接到通知后，直接去读取这个文件，而不是在聊天记录里去翻找。
+### C. "SOP (Standard Operating Procedure)" as the Collaboration Backbone
 
-### C. “SOP（标准作业程序）”作为协作流的骨架
+Human organizations run on processes. AegisOS supports YAML-defined SOP workflows. You can preset:
 
-人类公司的运转靠流程。AegisOS 会支持基于 YAML 定义的 SOP 工作流。你可以预设：
-
-- 环节一：需求分析 Agent 介入。
-- 环节二：如果需求清晰，分发给代码 Agent（OpenCode）；如果需要外网数据，分发给数据 Agent（Firecrawl）。
-- 环节三：测试 Agent 进行 Review，若失败，打回给代码 Agent。
-
----
+- Step 1: Requirements Analysis Agent intervenes.
+- Step 2: If requirements are clear, dispatch to Code Agent (OpenCode); if external data is needed, dispatch to Data Agent (Firecrawl).
+- Step 3: Test Agent reviews; if it fails, returns to Code Agent.
