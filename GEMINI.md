@@ -12,6 +12,7 @@
 - **编程模型**: **100% 异步 (async/await)**。所有 I/O、消息分发及 Agent 回调必须定义为 `async def`。
 - **数据模型**: 强制使用 **Pydantic V2** (`BaseModel`, `ConfigDict`) 进行所有 AACP 协议和配置的定义。
 - **路径安全**: 所有文件系统操作必须经过 `WorkspaceManager` 的路径穿越（Path Traversal）校验。
+- **语言约定**: 代码注释强制使用 **英文** (English)；`project-memory/` 目录下的文档（如 `vision.md`, `tasks.md` 等）保持使用 **中文**。
 
 ## 2. 开发生命周期 (Workflow)
 
