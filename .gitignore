@@ -158,3 +158,4 @@ tests/_test_workspace/
 .env*
 !docs/
 GEMINI.md
+project-memory/
