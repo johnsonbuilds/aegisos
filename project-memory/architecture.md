@@ -65,7 +65,26 @@ AegisOS 通过集成专业化引擎扩展其能力：
 - **Firecrawl (安全视觉与阅读)**：替代高耗能浏览器，获取纯净 Markdown 或结构化数据。
 - **Scrapling (数据采集装甲)**：极强适应性的爬虫框架，绕过反爬机制并适应 UI 更新。
 
-## 5. 技术栈
+## 5. 认知智能体架构映射 (Cognitive Architecture Mapping)
+这是 AegisOS 区别于普通脚本的核心灵魂，将 AI 核心范式转化为物理组件映射。
+
+### 5.1 任务拆解与规划 (Task Decomposition / Plan-and-Solve)
+- **理论映射**：放弃在 LLM 内存窗口中维护庞大的 Todo List，强制映射到**共享工作区 (Blackboard)** 和 **SOP 引擎**。
+- **实现规范**：主代理必须将拆解的子任务物化为物理文件（如 `_workspace/plan.json`），通过 AACP 消息的 `context_pointer` 派发任务。这使得规划过程持久化且支持多 Agent 异步协同。
+
+### 5.2 ReAct 边思考边行动范式 (Reasoning + Acting)
+- **理论映射**：放弃传统的 while 单线程死循环，彻底映射到 **AegisDispatcher (核心调度器)** 和 **AACP 通信总线**。
+- **实现规范**：Agent 的“思考(Thought)”在内部完成；“行动(Action)”体现为发出带有特定 Intent 的 AACP 消息；“观察(Observation)”体现为通过 Dispatcher 接收目标节点（如 CLI-Anything 插件）返回的执行结果消息。这实现了系统级的 ReAct 解耦。
+
+### 5.3 反思与纠错机制 (Reflexion & Self-Correction)
+- **理论映射**：系统级崩溃拦截，映射到 **SandboxRunner (安全沙箱)** 与 **AACP 的 ERROR 意图**。
+- **实现规范**：当专属编程代理 (OpenCode) 生成的代码在沙箱中运行崩溃时，绝不允许 AegisOS 宕机。沙箱必须将 Error Traceback 封装为 AACP ERROR 消息发回给代理，触发代理内部的反思提示词，使其自动修复代码并重试。
+
+### 5.4 状态追踪与停止条件 (State Tracking & Final Verification)
+- **理论映射**：映射到 **Kernel 系统代理 (system@local)** 和 **生命周期管理**。
+- **实现规范**：当子任务完成，必须发出 `TASK_COMPLETE` 消息。主代理通过工作区进行结果验收 (Critic)；验收合格后，主代理必须向系统代理发送 `TERMINATE` 指令，优雅地销毁临时子代理，释放系统资源。
+
+## 6. 技术栈
 - **核心语言**：Python 3.11+
 - **包管理**：uv
 - **异步框架**：asyncio / aiofiles
