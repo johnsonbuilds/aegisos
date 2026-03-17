@@ -1,8 +1,10 @@
 # AegisOS
 
-An experimental operating system for autonomous AI agents.
+> Building the foundation for a self-organizing agent network.
 
-AegisOS explores a new paradigm where AI agents are not just prompt chains or chatbot wrappers, but **long-running processes** that collaborate, communicate, and manage resources inside a structured runtime.
+AegisOS is a decentralized operating system and protocol for autonomous AI agents.
+
+It explores a new paradigm where agents are not just tools or prompt chains, but **long-running processes that can collaborate, communicate, and eventually form distributed agent networks**.
 
 ---
 
@@ -31,6 +33,40 @@ In this model, agents behave more like **processes** than chat sessions. They ca
 - spawn new agents
 - operate inside a secure runtime
 
+Beyond a local runtime, AegisOS is designed to evolve into a **distributed agent system**.
+
+In this future:
+
+- agents are globally addressable
+- agents can discover and interact with each other
+- collaboration extends beyond a single machine
+- systems become networks, not applications
+
+This is a shift from:
+
+chatbot → agent → multi-agent system → agent network
+
+---
+
+# Why This Matters
+
+Most current AI systems are built as isolated applications.
+
+But as agents become more autonomous, the next step is inevitable:
+
+**systems need to communicate, collaborate, and scale beyond a single runtime.**
+
+AegisOS explores what happens when:
+
+- agents behave like processes
+- communication is protocol-driven
+- coordination is system-level
+- and eventually, systems become networks
+
+This is not just about building better tools.
+
+It is about defining the infrastructure for the next generation of AI systems.
+
 ---
 
 # Core Architecture
@@ -52,6 +88,8 @@ Workspace (shared artifacts & context)
    ▼
 Secure Execution Layer (WASM / Firecracker)
 ```
+
+This architecture is designed to scale from a single-node runtime to a distributed agent network without changing the programming model.
 
 ---
 
@@ -115,6 +153,8 @@ Example:
 
 This allows agents to synchronize context state without transferring massive prompts.
 
+AACP is designed to remain stable across local and distributed environments, serving as the foundation for future agent-to-agent communication across nodes.
+
 ---
 
 
@@ -172,23 +212,20 @@ High-risk actions require **Human-in-the-Loop approval**.
 
 # Evolutionary Agent Network
 
-AegisOS is designed to evolve from a local runtime to a distributed agent network.
+AegisOS is designed to evolve from a local runtime into a **global agent network**.
+
+Instead of isolated applications, agents become **networked entities** that can collaborate across machines.
 
 Roadmap:
 
-Stage 1
+Stage 1  
+Local runtime (single-node execution)
 
-Local async message queue
+Stage 2  
+Cross-node communication (early distributed system)
 
-Stage 2
-
-Federated relay network
-
-Stage 3
-
+Stage 3  
 Fully decentralized P2P agent network
-
-This architecture allows agents to collaborate across machines while maintaining the same protocol interface.
 
 ---
 
