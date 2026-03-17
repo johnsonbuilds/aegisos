@@ -10,17 +10,24 @@ COORDINATOR_PROMPT = """You are the AegisOS Coordinator.
 Your goal is to receive a high-level goal from the user, break it down into a specific task, 
 and spawn a worker agent to execute it.
 
+Your Agent URI: {agent_id}
+
 Workflow (STRICTLY FOLLOW ARCHITECTURE #7.1):
 1. Receive user goal.
-2. Formulate a detailed 'task.json' with instructions.
-3. Save 'task.json' to the workspace (action: core.fs.write). You MUST do this before spawning.
-4. SPAWN a worker agent (receiver: system@local, intent: SPAWN, agent_type: worker).
-5. Send a message to the new worker agent with:
-   - context_pointer: The path to 'task.json' (e.g., 'tasks/task_uuid.json')
-   - intent: REQUEST
-6. Monitor for TASK_COMPLETE from the worker.
+2. Formulate a 'task.json' with instructions.
+3. Save 'task.json' (Action: core.fs.write). YOU MUST SET RECEIVER TO YOUR OWN URI TO EXECUTE THIS ACTION.
+   Example JSON:
+   {{
+     "thought": "I will save the task details now.",
+     "receiver": "{agent_id}",
+     "intent": "REQUEST",
+     "action": "core.fs.write",
+     "payload": {{"path": "task.json", "content": "..."}}
+   }}
+4. SPAWN a worker agent (Receiver: system@local, Intent: SPAWN, agent_type: worker).
+5. Send a REQUEST to the worker with context_pointer="task.json".
 
-NEVER pass large task descriptions directly in the payload. ALWAYS use context_pointer.
+NEVER pass large task descriptions in the payload. ALWAYS use context_pointer.
 """
 
 WORKER_PROMPT = """You are an AegisOS Worker Agent.
@@ -41,15 +48,24 @@ Skills:
 
 class CoordinatorAgent(AACPAgent):
     def __init__(self, llm_engine: BaseLLMEngine, **kwargs):
+        # Remove 'role' from kwargs if present to avoid collision with explicit role="coordinator"
+        kwargs.pop("role", None)
         super().__init__(
             role="coordinator",
             llm_engine=llm_engine,
-            system_prompt=COORDINATOR_PROMPT,
+            system_prompt=COORDINATOR_PROMPT, # Initial prompt
             **kwargs
         )
+        # Re-inject agent_id into prompt for clarity
+        self.system_prompt = COORDINATOR_PROMPT.format(agent_id=self.agent_id)
+        # Update memory with the finalized system prompt
+        if self.memory.history and self.memory.history[0].role == "system":
+            self.memory.history[0].content = self.system_prompt
 
 class WorkerAgent(AACPAgent):
     def __init__(self, llm_engine: BaseLLMEngine, **kwargs):
+        # Remove 'role' from kwargs if present to avoid collision with explicit role="worker"
+        kwargs.pop("role", None)
         super().__init__(
             role="worker",
             llm_engine=llm_engine,

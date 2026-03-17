@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from typing import Dict, Callable, Coroutine, Any, Optional
-from aegisos.core.protocol import AACPMessage, AACPIntent
+from aegisos.core.protocol import AACPMessage, AACPIntent, parse_agent_uri
 from aegisos.core.llm import BaseLLMEngine
 from aegisos.core.config import CONFIG, NetworkMode
 
@@ -10,7 +10,7 @@ logging.basicConfig(level=CONFIG.log_level, format='%(asctime)s - %(name)s - %(l
 logger = logging.getLogger("AegisDispatcher")
 
 class AegisDispatcher:
-    SYSTEM_AGENT_ID = "system@local"
+    SYSTEM_AGENT_ID = f"system@{CONFIG.instance_id}"
 
     def __init__(self, default_llm: Optional[BaseLLMEngine] = None, workspace: Optional[Any] = None):
         self.agents: Dict[str, Callable[[AACPMessage], Coroutine[Any, Any, None]]] = {}
@@ -82,21 +82,49 @@ class AegisDispatcher:
 
     async def _route_message(self, message: AACPMessage):
         """Dispatch message to the target Agent."""
-        target = message.receiver
+        target_uri = message.receiver
         
-        if target == "BROADCAST":
+        if target_uri == "BROADCAST":
             logger.info(f"Broadcasting message from {message.sender}")
             tasks = [self._call_agent(name, callback, message) 
                      for name, callback in self.agents.items()]
             if tasks:
                 await asyncio.gather(*tasks)
-        elif target in self.agents:
-            await self._call_agent(target, self.agents[target], message)
-        elif "@" in target:
-            # Identify remote URI: {role}_{uuid}@{instance_id}
-            await self.send_to_remote(target, message)
+            return
+
+        # 1. Resolve logical URI to physical Agent ID
+        resolved_id = self.resolve_target(target_uri)
+        
+        if resolved_id in self.agents:
+            await self._call_agent(resolved_id, self.agents[resolved_id], message)
+        elif "@" in resolved_id:
+            # 2. Actual remote delivery if not local
+            await self.send_to_remote(resolved_id, message)
         else:
-            logger.error(f"Target Agent '{target}' not found. Message {message.message_id} dropped.")
+            logger.error(f"Target Agent '{target_uri}' could not be resolved. Message dropped.")
+
+    def resolve_target(self, target_uri: str) -> str:
+        """
+        Resolves a logical Agent URI to a registered physical Agent ID.
+        Priority:
+        1. Exact ID match (role_uuid@instance)
+        2. Role match (if instance is local)
+        """
+        # 1. Exact match
+        if target_uri in self.agents:
+            return target_uri
+            
+        role, instance, _ = parse_agent_uri(target_uri)
+        
+        # 2. Local fallback: try role match
+        if instance in ["local", CONFIG.instance_id]:
+            for registered_id in self.agents:
+                reg_role, reg_inst, _ = parse_agent_uri(registered_id)
+                if reg_role == role and reg_inst == CONFIG.instance_id:
+                    logger.info(f"Resolved logical URI '{target_uri}' to physical ID '{registered_id}'")
+                    return registered_id
+                    
+        return target_uri
 
     async def send_to_remote(self, receiver_uri: str, message: AACPMessage):
         """

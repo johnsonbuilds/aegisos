@@ -40,7 +40,9 @@ class WebScraperSkill(BaseSkill):
                 download_dir = os.path.join(workspace_path, "downloads")
                 os.makedirs(download_dir, exist_ok=True)
                 
-                filename = f"web_{uuid.uuid4().hex[:8]}.md"
+                # Use agent_id for better traceability if available
+                agent_id = context.get("agent_id", "agent").split("@")[0]
+                filename = f"{agent_id}_{uuid.uuid4().hex[:6]}.md"
                 file_path = os.path.join("downloads", filename)
                 full_path = os.path.join(workspace_path, file_path)
                 

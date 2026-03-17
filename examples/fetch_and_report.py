@@ -46,7 +46,7 @@ async def main():
     user_goal = "Fetch the main page of https://www.indiehackers.com/ and generate a summary report of current top stories."
     
     user_msg = AACPMessage(
-        sender="user_interface",
+        sender="user@local", # Fixed URI format
         receiver=coordinator.agent_id,
         intent=AACPIntent.INFORM,
         payload={"goal": user_goal}

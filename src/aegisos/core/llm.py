@@ -1,5 +1,6 @@
 import abc
 import logging
+import json
 from typing import List, Dict, Any, Type, Optional, TypeVar, Union
 from pydantic import BaseModel
 from openai import AsyncOpenAI
@@ -29,7 +30,7 @@ class BaseLLMEngine(abc.ABC):
 
 class OpenAIEngine(BaseLLMEngine):
     """
-    OpenAI engine implementation (supports GPT-4, GPT-3.5, and all OpenAI-compatible backends)
+    OpenAI engine implementation (supports GPT-4, DeepSeek, and all OpenAI-compatible backends)
     """
     def __init__(self, api_key: Optional[str] = None, base_url: Optional[str] = None, model: Optional[str] = None):
         self.client = AsyncOpenAI(
@@ -46,14 +47,20 @@ class OpenAIEngine(BaseLLMEngine):
     ) -> Union[str, T]:
         try:
             if response_model:
-                # Use OpenAI's Structured Outputs feature
-                completion = await self.client.beta.chat.completions.parse(
+                # Use standard json_object for maximum compatibility across different providers
+                # Note: 'json' must be mentioned in the prompt for this format
+                completion = await self.client.chat.completions.create(
                     model=self.model,
                     messages=messages,
-                    response_format=response_model,
+                    response_format={'type': 'json_object'},
                     **kwargs
                 )
-                return completion.choices[0].message.parsed
+                content = completion.choices[0].message.content
+                if not content:
+                    raise ValueError("LLM returned empty content")
+                
+                # Use Pydantic to validate and parse the JSON string
+                return response_model.model_validate_json(content)
             else:
                 completion = await self.client.chat.completions.create(
                     model=self.model,
@@ -80,9 +87,6 @@ class AnthropicEngine(BaseLLMEngine):
         **kwargs
     ) -> Union[str, T]:
         try:
-            # Anthropic currently does not natively support direct Pydantic parsing like OpenAI
-            # Here we force and manually parse via prompting (or use tool use for structured output)
-            # For simplicity, basic text generation is implemented; structured output is recommended via Tool Use
             system_msg = ""
             user_msgs = []
             for m in messages:
@@ -92,9 +96,6 @@ class AnthropicEngine(BaseLLMEngine):
                     user_msgs.append({"role": m["role"], "content": m["content"]})
 
             if response_model:
-                # Simple implementation: force JSON and parse via prompting
-                # In production, tool_use (Beta) is recommended
-                logger.warning("Anthropic structured output is currently emulated via prompt forcing.")
                 prompt_suffix = f"\n\nIMPORTANT: You must return ONLY a valid JSON object matching this schema: {response_model.model_json_schema()}"
                 user_msgs[-1]["content"] += prompt_suffix
                 

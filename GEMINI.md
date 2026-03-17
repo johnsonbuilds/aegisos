@@ -26,7 +26,11 @@ Follow this cycle for tasks in each Phase:
 
 ### 2. Plan: Clarify implementation details, interface definitions, and testing strategies
 
+- **Constraint**: Must strictly adhere to the design principles and technical decisions defined in `project-memory/architecture.md` and `project-memory/decisions.md`.
+
 ### 3. Act: Write/modify code
+
+- **Constraint**: Ensure implementation is consistent with the planned strategy and aligns with the existing architecture and project decisions.
 
 ### 4. Validate
 

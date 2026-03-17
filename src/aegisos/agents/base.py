@@ -3,7 +3,7 @@ import logging
 import uuid
 from typing import List, Dict, Any, Optional, Type, Union
 from pydantic import BaseModel, Field
-from aegisos.core.protocol import AACPMessage, AACPIntent
+from aegisos.core.protocol import AACPMessage, AACPIntent, parse_agent_uri
 from aegisos.core.actions import AACPAction
 from aegisos.core.llm import BaseLLMEngine
 from aegisos.core.config import CONFIG
@@ -63,6 +63,11 @@ class AACPAgent:
         # Skill Registry
         self.skills: Dict[str, BaseSkill] = {}
         
+        # Register default internal skills
+        from aegisos.agents.skills.file_system import FileSystemSkill
+        self.add_skill(FileSystemSkill(AACPAction.FILE_WRITE.value))
+        self.add_skill(FileSystemSkill(AACPAction.FILE_READ.value))
+        
         # Use MemoryManager to manage hot memory
         self.memory = MemoryManager(
             max_messages=max_memory_messages, 
@@ -113,24 +118,37 @@ class AACPAgent:
         logger.debug(f"[{self.agent_id}] Thinking...")
         
         try:
-            # Enforce Structured Outputs
+            # Prepare messages
+            messages = self.memory.get_context()
+            
+            # Simple JSON mode guidance (standard for DeepSeek/OpenAI/Claude-via-OpenRouter)
+            # Ensure "json" is in the system or last user message
+            json_guidance = "\n\nResponse must be a valid JSON object."
+            if messages and messages[-1]["role"] == "user":
+                messages[-1]["content"] += json_guidance
+
+            # Enforce Structured Outputs via json_object
             response: AACPResponse = await self.llm.generate(
-                messages=self.memory.get_context(),
+                messages=messages,
                 response_model=AACPResponse
             )
+            
+            logger.info(f"[{self.agent_id}] Thought: {response.thought}")
             
             # Record the Agent's own reasoning and actions
             action_desc = f"THOUGHT: {response.thought}\n"
             if response.receiver:
                 action_desc += f"ACTION: {response.intent} to {response.receiver}"
+                if response.action:
+                    action_desc += f" (Action: {response.action})"
             else:
                 action_desc += "ACTION: No further action required."
+                logger.warning(f"[{self.agent_id}] Decision: No action decided by LLM.")
                 
             # Record the assistant's reply to memory
             await self.memory.add_message(role="assistant", content=action_desc)
 
             if not response.receiver:
-                logger.info(f"[{self.agent_id}] No action decided.")
                 return
 
             # If the LLM specifies a standard Action, inject it into the payload
@@ -139,12 +157,16 @@ class AACPAgent:
 
             # --- Special Logic: Self-executing Action loop (Reflexion/Skills) ---
             # If the Agent decides to send a REQUEST to itself, execute it directly
+            # Support exact ID match OR role@local/role@instance_id match
+            target_uri = response.receiver
+            role, inst, _ = parse_agent_uri(target_uri) if target_uri else (None, None, None)
+            
             is_self_exec = (
-                response.receiver == self.agent_id and 
-                response.intent == AACPIntent.REQUEST
+                target_uri == self.agent_id or 
+                (role == self.role and inst in ["local", CONFIG.instance_id])
             )
 
-            if is_self_exec:
+            if is_self_exec and response.intent == AACPIntent.REQUEST:
                 action_name = response.payload.get("action")
                 logger.info(f"[{self.agent_id}] Triggering self-execution: {action_name}")
                 
@@ -154,7 +176,10 @@ class AACPAgent:
                 if action_name in self.skills:
                     skill_res = await self.skills[action_name].execute(
                         payload=response.payload,
-                        context={"workspace_path": str(self.workspace.root_path) if self.workspace else None}
+                        context={
+                            "workspace_path": str(self.workspace.root_path) if self.workspace else None,
+                            "agent_id": self.agent_id
+                        }
                     )
                     result_str = (
                         f"SKILL_RESULT ({action_name}):\n"
