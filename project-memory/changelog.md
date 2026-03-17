@@ -1,5 +1,18 @@
 # AegisOS Changelog
 
+## [0.1.4] - 2026-03-17
+### Added
+- **Pluggable Skills**: Introduced `BaseSkill` and a dynamic skill registry in `AACPAgent`.
+- **WebScraper Skill**: Implemented `WebScraperSkill` (using `httpx`) as an external plugin, decoupling it from the core protocol.
+- **Common Agents**: Added `CoordinatorAgent` and `WorkerAgent` for standard task orchestration.
+- **SandboxRunner**: Completed the initial `SandboxRunner` based on restricted subprocesses.
+- **Task 8 Demo**: Created `examples/fetch_and_report.py` to demonstrate the full agent collaboration loop.
+
+### Changed
+- **Agent Factory**: Updated `AgentFactory` to support lazy loading of common agent types.
+- **Dispatcher**: Enhanced the `SPAWN` logic to automatically inject the default LLM engine for known agent types.
+- **AACPAgent**: Generalized the self-execution (Reflexion) loop to support both built-in actions and registered skills.
+
 ## [0.1.3] - 2026-03-16
 ### Added
 - **Standard Actions**: Introduced `src/aegisos/core/actions.py`, defining the standard action enum `AACPAction` (e.g., `core.exec.code`, `core.fs.read`, etc.).

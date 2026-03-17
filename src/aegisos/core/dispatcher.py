@@ -151,19 +151,25 @@ class AegisDispatcher:
                 "role": role,
                 "agent_id": requested_id,
                 "dispatcher": self,
-                "workspace": self.workspace # Pass workspace
+                "workspace": self.workspace 
             }
             
-            # If it is of type LLM, inject LLM Engine
-            if agent_type == "llm":
-                if not self.default_llm:
-                    logger.error("[SYSTEM] SPAWN failed: No default LLM engine configured for 'llm' agent type.")
-                    return
-                spawn_params["llm_engine"] = self.default_llm
-                spawn_params["system_prompt"] = message.payload.get("prompt", "You are a helpful assistant.")
-
             try:
-                # Instantiate Agent through Factory
+                # 1. Inspect class metadata (Architecture #12 & #13)
+                agent_class = AGENT_FACTORY.get_class(agent_type)
+                
+                # Check for LLM requirement
+                if getattr(agent_class, "requires_llm", False):
+                    if not self.default_llm:
+                        logger.error(f"[SYSTEM] SPAWN failed: No default LLM engine for agent type '{agent_type}' which requires it.")
+                        return
+                    spawn_params["llm_engine"] = self.default_llm
+                    
+                    # Custom prompt injection
+                    if "prompt" in message.payload:
+                        spawn_params["system_prompt"] = message.payload["prompt"]
+
+                # 2. Instantiate Agent through Factory
                 new_agent = AGENT_FACTORY.create(agent_type, **spawn_params)
                 
                 # Register new Agent

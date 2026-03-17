@@ -7,6 +7,7 @@ from aegisos.core.protocol import AACPMessage, AACPIntent
 from aegisos.core.actions import AACPAction
 from aegisos.core.llm import BaseLLMEngine
 from aegisos.core.config import CONFIG
+from aegisos.core.skills import BaseSkill, SkillResult
 from aegisos.memory.manager import MemoryManager
 
 logger = logging.getLogger("AACPAgent")
@@ -27,6 +28,8 @@ class AACPAgent:
     """
     Base class for Agents with cognitive capabilities.
     """
+    requires_llm = True # Class metadata for Factory/Dispatcher
+
     def __init__(
         self, 
         role: str, 
@@ -57,11 +60,23 @@ class AACPAgent:
         from aegisos.core.sandbox import SandboxRunner
         self.sandbox = SandboxRunner(str(workspace.root_path)) if workspace else None
         
+        # Skill Registry
+        self.skills: Dict[str, BaseSkill] = {}
+        
         # Use MemoryManager to manage hot memory
         self.memory = MemoryManager(
             max_messages=max_memory_messages, 
             system_prompt=system_prompt
         )
+
+    def add_skill(self, skill: BaseSkill):
+        """Register a new skill to this agent."""
+        if not skill.check_dependencies():
+            logger.error(f"[{self.agent_id}] Failed to load skill {skill.name}: Missing dependencies.")
+            return False
+        self.skills[skill.name] = skill
+        logger.info(f"[{self.agent_id}] Skill {skill.name} registered.")
+        return True
 
     def register_to(self, dispatcher: Any):
         """Register itself to the specified Dispatcher."""
@@ -122,31 +137,52 @@ class AACPAgent:
             if response.action:
                 response.payload["action"] = response.action.value
 
-            # --- Special Logic: Self-executing Reflexion loop ---
-            # If the Agent decides to send a REQUEST of type CODE_EXEC to itself, run it directly in the sandbox
+            # --- Special Logic: Self-executing Action loop (Reflexion/Skills) ---
+            # If the Agent decides to send a REQUEST to itself, execute it directly
             is_self_exec = (
                 response.receiver == self.agent_id and 
-                response.intent == AACPIntent.REQUEST and 
-                (response.payload.get("action") in [AACPAction.CODE_EXEC, AACPAction.PYTHON_RUN])
+                response.intent == AACPIntent.REQUEST
             )
 
             if is_self_exec:
-                logger.info(f"[{self.agent_id}] Triggering self-execution (Reflexion loop).")
-                code = response.payload.get("code", "")
-                if self.sandbox and code:
-                    result = await self.sandbox.run_python(code)
-                    # Store the result in memory as feedback
-                    result_msg = (
-                        f"EXECUTION_RESULT:\n"
-                        f"EXIT_CODE: {result.exit_code}\n"
-                        f"STDOUT: {result.stdout}\n"
-                        f"STDERR: {result.stderr}\n"
+                action_name = response.payload.get("action")
+                logger.info(f"[{self.agent_id}] Triggering self-execution: {action_name}")
+                
+                result_str = ""
+                
+                # 1. Check if it's a registered Skill
+                if action_name in self.skills:
+                    skill_res = await self.skills[action_name].execute(
+                        payload=response.payload,
+                        context={"workspace_path": str(self.workspace.root_path) if self.workspace else None}
                     )
-                    await self.memory.add_message(role="user", content=result_msg)
-                    # Recursively trigger reasoning until the Agent considers the task complete
-                    await self.think()
+                    result_str = (
+                        f"SKILL_RESULT ({action_name}):\n"
+                        f"SUCCESS: {skill_res.success}\n"
+                        f"DATA: {skill_res.data}\n"
+                        f"ERROR: {skill_res.error}\n"
+                    )
+                
+                # 2. Check if it's a built-in Code Execution
+                elif action_name in [AACPAction.CODE_EXEC, AACPAction.PYTHON_RUN]:
+                    code = response.payload.get("code", "")
+                    if self.sandbox and code:
+                        result = await self.sandbox.run_python(code)
+                        result_str = (
+                            f"EXECUTION_RESULT:\n"
+                            f"EXIT_CODE: {result.exit_code}\n"
+                            f"STDOUT: {result.stdout}\n"
+                            f"STDERR: {result.stderr}\n"
+                        )
+                    else:
+                        result_str = "ERROR: Sandbox not available or code is empty."
+                
                 else:
-                    logger.error(f"[{self.agent_id}] Sandbox not available or code is empty.")
+                    result_str = f"ERROR: Unknown action or skill '{action_name}'"
+
+                # Store the result in memory as feedback and re-think
+                await self.memory.add_message(role="user", content=result_str)
+                await self.think()
                 return
             # ------------------------------------
 

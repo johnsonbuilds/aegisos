@@ -19,16 +19,20 @@ class AgentFactory:
     @classmethod
     def create(cls, agent_type: str, **kwargs) -> Any:
         """Instantiate an Agent based on its type"""
+        agent_class = cls.get_class(agent_type)
+        logger.debug(f"Instantiating {agent_type} agent...")
+        return agent_class(**kwargs)
+
+    @classmethod
+    def get_class(cls, agent_type: str) -> Type:
+        """Get the Agent class for a type to inspect metadata"""
         if agent_type not in cls._registry:
-            # Attempt lazy loading of default types to avoid circular imports
             cls._lazy_load_defaults()
             
         if agent_type not in cls._registry:
             raise ValueError(f"Unknown agent type: {agent_type}")
             
-        agent_class = cls._registry[agent_type]
-        logger.debug(f"Instantiating {agent_type} agent...")
-        return agent_class(**kwargs)
+        return cls._registry[agent_type]
 
     @classmethod
     def _lazy_load_defaults(cls):
@@ -44,6 +48,13 @@ class AgentFactory:
             cls.register("stub", StubAgent)
         except ImportError:
             logger.warning("Could not lazy load StubAgent")
+
+        try:
+            from aegisos.agents.common import CoordinatorAgent, WorkerAgent
+            cls.register("coordinator", CoordinatorAgent)
+            cls.register("worker", WorkerAgent)
+        except ImportError:
+            logger.warning("Could not lazy load CommonAgents")
 
 # Global singleton
 AGENT_FACTORY = AgentFactory
