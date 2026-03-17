@@ -8,11 +8,11 @@ from aegisos.core.config import CONFIG
 
 @pytest.mark.asyncio
 async def test_aacp_agent_think_loop():
-    # 1. 准备 Mock
+    # 1. Prepare Mocks
     mock_llm = AsyncMock(spec=OpenAIEngine)
     mock_dispatcher = AsyncMock()
     
-    # 模拟 LLM 返回一个指令：回复消息给发送者
+    # Mock LLM returning an instruction: reply to the sender
     mock_decision = AACPResponse(
         thought="The user said hi, I should reply.",
         receiver=f"UserAgent@{CONFIG.instance_id}",
@@ -29,7 +29,7 @@ async def test_aacp_agent_think_loop():
         dispatcher=mock_dispatcher
     )
 
-    # 2. 模拟收到一条消息
+    # 2. Mock receiving a message
     incoming_msg = AACPMessage(
         sender=f"UserAgent@{CONFIG.instance_id}",
         receiver=agent.agent_id,
@@ -39,16 +39,16 @@ async def test_aacp_agent_think_loop():
     
     await agent.handle_message(incoming_msg)
 
-    # 3. 验证结果
-    # 验证 LLM 被正确调用（带着历史记录和 Response Model）
+    # 3. Verify results
+    # Verify LLM was called correctly (with history and Response Model)
     mock_llm.generate.assert_called_once()
     args, kwargs = mock_llm.generate.call_args
     assert kwargs["response_model"] == AACPResponse
     
-    # 验证消息历史已更新
+    # Verify message history was updated
     assert len(agent.memory.history) == 3 # System + User(hi) + Assistant(thought)
 
-    # 验证 Dispatcher 收到了传出的 AACPMessage
+    # Verify Dispatcher received the outgoing AACPMessage
     mock_dispatcher.send_message.assert_called_once()
     sent_msg: AACPMessage = mock_dispatcher.send_message.call_args[0][0]
     assert sent_msg.sender == agent.agent_id

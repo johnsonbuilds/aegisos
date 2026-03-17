@@ -11,27 +11,27 @@ class NetworkMode(str, Enum):
 
 class AegisConfig(BaseModel):
     """
-    AegisOS 全局配置管理
+    AegisOS global configuration management
     """
-    # 当前实例 ID (用于多机通信标识)
+    # Current instance ID (used for multi-node communication identification)
     instance_id: str = Field(
         default_factory=lambda: os.getenv("AEGIS_INSTANCE_ID", "local-node"),
         description="Unique identifier for this instance"
     )
     
-    # 网络模式，默认为本地
+    # Network mode, defaults to local
     network_mode: NetworkMode = Field(
         default_factory=lambda: NetworkMode(os.getenv("AEGIS_NETWORK_MODE", "local")),
         description="Underlying network engine"
     )
 
-    # 日志级别
+    # Log level
     log_level: str = Field(
         default_factory=lambda: os.getenv("AEGIS_LOG_LEVEL", "INFO"),
         description="Global log level"
     )
 
-    # LLM 配置
+    # LLM configuration
     openai_api_key: Optional[str] = Field(default_factory=lambda: os.getenv("OPENAI_API_KEY"))
     openai_model: str = Field(default_factory=lambda: os.getenv("OPENAI_MODEL", "gpt-4o"))
     openai_base_url: Optional[str] = Field(default_factory=lambda: os.getenv("OPENAI_BASE_URL"))
@@ -39,5 +39,5 @@ class AegisConfig(BaseModel):
     anthropic_api_key: Optional[str] = Field(default_factory=lambda: os.getenv("ANTHROPIC_API_KEY"))
     anthropic_model: str = Field(default_factory=lambda: os.getenv("ANTHROPIC_MODEL", "claude-3-5-sonnet-20241022"))
 
-# 全局单例配置对象
+# Global singleton configuration object
 CONFIG = AegisConfig()

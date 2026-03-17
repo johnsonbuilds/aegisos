@@ -6,18 +6,18 @@ from aegisos.core.sandbox import SandboxRunner
 
 @pytest.fixture
 def sandbox_env():
-    # 创建临时测试目录
+    # Create temporary test directory
     test_dir = "_test_sandbox"
     if not os.path.exists(test_dir):
         os.makedirs(test_dir)
     yield test_dir
-    # 清理
+    # Cleanup
     if os.path.exists(test_dir):
         shutil.rmtree(test_dir)
 
 @pytest.mark.asyncio
 async def test_sandbox_normal(sandbox_env):
-    """测试正常执行"""
+    """Test normal execution"""
     runner = SandboxRunner(sandbox_env)
     code = "print('Hello Sandbox')"
     result = await runner.run_python(code)
@@ -29,7 +29,7 @@ async def test_sandbox_normal(sandbox_env):
 
 @pytest.mark.asyncio
 async def test_sandbox_error(sandbox_env):
-    """测试代码报错捕获"""
+    """Test code error capture"""
     runner = SandboxRunner(sandbox_env)
     code = "raise ValueError('Oops')"
     result = await runner.run_python(code)
@@ -40,9 +40,9 @@ async def test_sandbox_error(sandbox_env):
 
 @pytest.mark.asyncio
 async def test_sandbox_timeout(sandbox_env):
-    """测试超时终止"""
+    """Test timeout termination"""
     runner = SandboxRunner(sandbox_env)
-    # 模拟死循环
+    # Simulate infinite loop
     code = "import time\nwhile True: time.sleep(0.1)"
     result = await runner.run_python(code, timeout=1)
     

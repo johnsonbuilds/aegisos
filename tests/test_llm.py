@@ -12,7 +12,7 @@ async def test_openai_engine_structured():
     engine = OpenAIEngine(api_key="fake-key")
     
     mock_response = AsyncMock()
-    # 模拟 OpenAI beta.chat.completions.parse 的返回结构
+    # Mock return structure of OpenAI beta.chat.completions.parse
     mock_response.choices = [
         AsyncMock(message=AsyncMock(parsed=SimpleResponse(answer="hello", confidence=0.99)))
     ]

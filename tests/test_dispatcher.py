@@ -8,7 +8,7 @@ from aegisos.core.config import CONFIG
 async def test_dispatcher_routing():
     dispatcher = AegisDispatcher()
     
-    # 记录回调被调用的次数
+    # Future to capture callback messages
     future_a = asyncio.Future()
     future_b = asyncio.Future()
 
@@ -25,10 +25,10 @@ async def test_dispatcher_routing():
     dispatcher.register_agent(agent_a_uri, callback_a)
     dispatcher.register_agent(agent_b_uri, callback_b)
 
-    # 启动调度器
+    # Start the dispatcher
     await dispatcher.start()
 
-    # 1. 发送单播消息给 AgentB
+    # 1. Send a unicast message to AgentB
     msg_to_b = AACPMessage(
         sender=agent_a_uri,
         receiver=agent_b_uri,
@@ -37,13 +37,13 @@ async def test_dispatcher_routing():
     )
     await dispatcher.send_message(msg_to_b)
 
-    # 等待结果
+    # Wait for results
     received_msg_b = await asyncio.wait_for(future_b, timeout=1.0)
     assert received_msg_b.payload["data"] == "test_unicast"
     assert not future_a.done()
 
-    # 2. 发送广播消息
-    # 重置 Future
+    # 2. Send a broadcast message
+    # Reset Futures
     future_a = asyncio.Future()
     future_b = asyncio.Future()
     
@@ -63,7 +63,7 @@ async def test_dispatcher_routing():
     assert future_a.result().payload["data"] == "test_broadcast"
     assert future_b.result().payload["data"] == "test_broadcast"
 
-    # 停止调度器
+    # Stop the dispatcher
     await dispatcher.stop()
 
 @pytest.mark.asyncio
@@ -71,7 +71,7 @@ async def test_dispatcher_invalid_target():
     dispatcher = AegisDispatcher()
     await dispatcher.start()
 
-    # 发送给不存在的 Agent
+    # Send to a non-existent Agent
     msg = AACPMessage(
         sender=f"AgentA@{CONFIG.instance_id}",
         receiver=f"Unknown@{CONFIG.instance_id}",
@@ -80,8 +80,8 @@ async def test_dispatcher_invalid_target():
     )
     await dispatcher.send_message(msg)
     
-    # 等待一会儿确保消息被处理
+    # Wait a moment to ensure the message is processed
     await asyncio.sleep(0.1)
     
     await dispatcher.stop()
-    # 目前主要验证不会抛异常崩溃，且日志会有记录
+    # Currently mainly verifies it won't crash and will log the event

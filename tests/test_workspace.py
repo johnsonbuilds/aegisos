@@ -6,11 +6,11 @@ from aegisos.core.workspace import WorkspaceManager
 
 @pytest.fixture
 def temp_workspace():
-    # 使用一个独立的测试工作区目录
+    # Use an independent test workspace directory
     base_dir = "tests/_test_workspace"
     manager = WorkspaceManager(base_dir=base_dir)
     yield manager
-    # 测试完成后清理
+    # Cleanup after testing is complete
     if os.path.exists(base_dir):
         shutil.rmtree(base_dir)
 
@@ -19,17 +19,17 @@ async def test_workspace_write_read(temp_workspace):
     filename = "test.txt"
     content = "hello aegisos"
     
-    # 测试写入
+    # Test writing
     rel_path = await temp_workspace.write_file(filename, content)
     assert rel_path == filename
     
-    # 测试读取
+    # Test reading
     read_content = await temp_workspace.read_file(rel_path)
     assert read_content == content
 
 @pytest.mark.asyncio
 async def test_path_traversal_prevention(temp_workspace):
-    # 尝试访问父目录
+    # Attempt to access the parent directory
     with pytest.raises(PermissionError):
         await temp_workspace.read_file("../outside.txt")
     
@@ -38,13 +38,13 @@ async def test_path_traversal_prevention(temp_workspace):
 
 @pytest.mark.asyncio
 async def test_session_id_persistence():
-    # 测试手动传入 session_id
+    # Test manually passing session_id
     session_id = "test-session-123"
     manager = WorkspaceManager(base_dir="tests/_test_workspace", session_id=session_id)
     assert manager.session_id == session_id
     assert str(manager.root_path).endswith(session_id)
     
-    # 清理
+    # Cleanup
     shutil.rmtree("tests/_test_workspace")
 
 @pytest.mark.asyncio

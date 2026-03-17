@@ -5,22 +5,22 @@ logger = logging.getLogger("AgentFactory")
 
 class AgentFactory:
     """
-    负责 Agent 类的注册与实例化逻辑。
-    将具体的 Agent 实现与 Dispatcher 内核解耦。
+    Responsible for Agent class registration and instantiation logic.
+    Decouples specific Agent implementations from the Dispatcher core.
     """
     _registry: Dict[str, Type] = {}
 
     @classmethod
     def register(cls, agent_type: str, agent_class: Type):
-        """注册一个新的 Agent 类型"""
+        """Register a new Agent type"""
         cls._registry[agent_type] = agent_class
         logger.info(f"Agent type '{agent_type}' registered with class {agent_class.__name__}")
 
     @classmethod
     def create(cls, agent_type: str, **kwargs) -> Any:
-        """根据类型实例化 Agent"""
+        """Instantiate an Agent based on its type"""
         if agent_type not in cls._registry:
-            # 尝试延迟加载默认类型以避免循环引用
+            # Attempt lazy loading of default types to avoid circular imports
             cls._lazy_load_defaults()
             
         if agent_type not in cls._registry:
@@ -32,7 +32,7 @@ class AgentFactory:
 
     @classmethod
     def _lazy_load_defaults(cls):
-        """按需加载内置 Agent 类型"""
+        """Load built-in Agent types on demand"""
         try:
             from aegisos.agents.base import AACPAgent
             cls.register("llm", AACPAgent)
@@ -45,5 +45,5 @@ class AgentFactory:
         except ImportError:
             logger.warning("Could not lazy load StubAgent")
 
-# 全局单例
+# Global singleton
 AGENT_FACTORY = AgentFactory

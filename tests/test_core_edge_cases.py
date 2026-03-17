@@ -8,19 +8,19 @@ from aegisos.core.config import CONFIG
 
 @pytest.mark.asyncio
 async def test_dispatcher_system_agent_protection():
-    """验证系统代理无法注销"""
+    """Verify that system agents cannot be unregistered"""
     dispatcher = AegisDispatcher()
     system_id = AegisDispatcher.SYSTEM_AGENT_ID
     
     assert system_id in dispatcher.agents
     
-    # 尝试注销
+    # Attempt to unregister
     dispatcher.unregister_agent(system_id)
-    assert system_id in dispatcher.agents  # 应该依然存在
+    assert system_id in dispatcher.agents  # Should still exist
 
 @pytest.mark.asyncio
 async def test_dispatcher_callback_isolation():
-    """验证 Agent 回调抛出异常不影响调度器和其他 Agent"""
+    """Verify that an Agent callback throwing an exception does not affect the dispatcher or other Agents"""
     dispatcher = AegisDispatcher()
     
     future_b = asyncio.Future()
@@ -39,23 +39,23 @@ async def test_dispatcher_callback_isolation():
     
     await dispatcher.start()
 
-    # 1. 给 AgentA 发送消息（会触发异常）
+    # 1. Send message to AgentA (will trigger an exception)
     msg_a = AACPMessage(sender=f"sys@{CONFIG.instance_id}", receiver=agent_a_id, intent=AACPIntent.INFORM, payload={})
     await dispatcher.send_message(msg_a)
 
-    # 2. 给 AgentB 发送消息（验证依然工作）
+    # 2. Send message to AgentB (verify it still works)
     msg_b = AACPMessage(sender=f"sys@{CONFIG.instance_id}", receiver=agent_b_id, intent=AACPIntent.INFORM, payload={})
     await dispatcher.send_message(msg_b)
 
     result = await asyncio.wait_for(future_b, timeout=1.0)
     assert result == "OK"
-    assert dispatcher._is_running  # 调度器应该依然在运行
+    assert dispatcher._is_running  # Dispatcher should still be running
     
     await dispatcher.stop()
 
 @pytest.mark.asyncio
 async def test_dispatcher_duplicate_registration():
-    """验证重复注册 Agent 会覆盖之前的回调"""
+    """Verify that duplicate Agent registration overrides the previous callback"""
     dispatcher = AegisDispatcher()
     results = []
 
@@ -75,33 +75,33 @@ async def test_dispatcher_duplicate_registration():
     await dispatcher.send_message(msg)
     
     await asyncio.sleep(0.1)
-    assert results == [2]  # 应该只有第二个回调被触发
+    assert results == [2]  # Only the second callback should be triggered
     
     await dispatcher.stop()
 
 @pytest.mark.asyncio
 async def test_workspace_deep_directories(tmp_path):
-    """验证深层子目录的自动创建和读取"""
-    # 使用 pytest 提供的 tmp_path 避免清理残留
+    """Verify automatic creation and reading of deep subdirectories"""
+    # Use tmp_path provided by pytest to avoid leftover cleanup issues
     manager = WorkspaceManager(base_dir=str(tmp_path), session_id="test-deep")
     
     deep_path = "a/b/c/d/test.txt"
     content = "deep content"
     
-    # 写入深层目录
+    # Write to a deep directory
     await manager.write_file(deep_path, content)
     
-    # 读取验证
+    # Verify reading
     read_content = await manager.read_file(deep_path)
     assert read_content == content
     
-    # 验证 list_files 包含该路径
+    # Verify that list_files contains the path
     files = await manager.list_files()
     assert deep_path in files
 
 @pytest.mark.asyncio
 async def test_workspace_illegal_paths(tmp_path):
-    """验证各种路径穿越变体"""
+    """Verify various path traversal variants"""
     manager = WorkspaceManager(base_dir=str(tmp_path), session_id="test-illegal")
     
     bad_paths = [

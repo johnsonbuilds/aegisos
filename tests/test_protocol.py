@@ -12,7 +12,7 @@ def test_aacp_message_parsing():
         "context_pointer": "path/to/context"
     }
     
-    # 验证从字典解析
+    # Verify parsing from dictionary
     message = AACPMessage(**json_data)
     assert message.sender == "AgentA@local-node"
     assert message.receiver == "AgentB@local-node"
@@ -22,7 +22,7 @@ def test_aacp_message_parsing():
     assert isinstance(message.message_id, UUID)
     assert isinstance(message.timestamp, datetime)
 
-    # 验证 JSON 字符串解析
+    # Verify parsing from JSON string
     json_str = json.dumps(json_data)
     message_from_json = AACPMessage.model_validate_json(json_str)
     assert message_from_json.sender == "AgentA@local-node"
