@@ -1,6 +1,6 @@
 import re
 from enum import Enum
-from typing import Optional, Dict, Any, Tuple
+from typing import Optional, Dict, Any, Tuple, Union
 from uuid import UUID, uuid4
 from datetime import datetime
 from pydantic import BaseModel, Field, ConfigDict, field_validator
@@ -50,7 +50,7 @@ class AACPMessage(BaseModel):
     receiver: str
     intent: AACPIntent
     payload: Dict[str, Any] = Field(default_factory=dict)
-    context_pointer: Optional[str] = None
+    context_pointer: Optional[Union[str, Dict[str, Any]]] = None
 
     @field_validator("sender", "receiver")
     @classmethod

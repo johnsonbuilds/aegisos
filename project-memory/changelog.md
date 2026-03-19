@@ -1,10 +1,12 @@
 # AegisOS Changelog
 
 ## [0.1.5] - 2026-03-19
-### Added
+### Changed
+- **Cognitive Architecture Mapping**: Strictly separated transient execution (`payload`) from persistent cognition (`context_pointer`).
+- **AACP Message Refactor**: Supported structured `context_pointer` with `uri`, `type`, and `current_task`.
+- **AACPAgent Intelligence**: Enhanced **Cognitive Indexing**; agents now receive structured `context_pointer` and must explicitly read workspace state using skills (maintaining Zero-Trust Cognition).
+- **Common Agents Refactor**: Removed hardcoded loops in `CoordinatorAgent` and `WorkerAgent`, migrating them to a "Blackboard" system using LLM-driven planning.
 - **Architectural Refinement**: Formalized the responsibility boundary between `payload` (Execution Layer) and `context_pointer` (Cognitive Layer).
-- **Coordinator-Worker Pattern**: Standardized the 5-step task execution workflow and role separation in `architecture.md`.
-- **System Design Decisions**: Added Decision 15 and 16 to `decisions.md` regarding layer decoupling and role separation.
 
 ## [0.1.4] - 2026-03-17
 ### Added

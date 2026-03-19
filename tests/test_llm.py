@@ -12,13 +12,13 @@ async def test_openai_engine_structured():
     engine = OpenAIEngine(api_key="fake-key")
     
     mock_response = AsyncMock()
-    # Mock return structure of OpenAI beta.chat.completions.parse
+    # Mock return structure of OpenAI chat.completions.create
     mock_response.choices = [
-        AsyncMock(message=AsyncMock(parsed=SimpleResponse(answer="hello", confidence=0.99)))
+        AsyncMock(message=AsyncMock(content='{"answer": "hello", "confidence": 0.99}'))
     ]
     
-    with patch.object(engine.client.beta.chat.completions, 'parse', new_callable=AsyncMock) as mock_parse:
-        mock_parse.return_value = mock_response
+    with patch.object(engine.client.chat.completions, 'create', new_callable=AsyncMock) as mock_create:
+        mock_create.return_value = mock_response
         messages = [{"role": "user", "content": "hi"}]
         result = await engine.generate(messages, response_model=SimpleResponse)
         

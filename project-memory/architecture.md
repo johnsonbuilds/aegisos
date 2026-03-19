@@ -157,16 +157,54 @@ Subsequent iterations will introduce **Hierarchical Delegation**, enabling contr
 5. **Execution & Feedback**: Worker executes the task, writes results to the workspace, and sends `TASK_COMPLETE` back to the Coordinator.
 6. **Plan Update**: Coordinator updates `plan.json` and repeats the cycle.
 
+### 7.6 Context Access Model (Lazy Cognitive Loading)
+
+To preserve the separation between system-level cognition and prompt-based reasoning, AegisOS enforces a strict **lazy-loading model** for externalized state.
+
+- **No Full Auto-Inspection**:
+    
+    Agents MUST NOT automatically preload full workspace files (e.g., `plan.json`) into the prompt.
+    
+- **Context Pointer as Index, Not Payload**:
+    
+    The `context_pointer` provides:
+    
+    - a **minimal execution directive** (e.g., `current_task`)
+    - a **reference to external state** (`uri`)
+
+- **On-Demand Access**:
+    
+    Agents must explicitly retrieve additional context via system skills (e.g., `FILE_READ`) when needed.
+    
+- **Lightweight Injection Only**:
+    
+    The system may inject:
+    
+    - task identifiers
+    - high-level summaries
+    
+    But MUST NOT inject full state content.
+    
+**Rationale**:
+
+- Prevents token explosion
+- Avoids cognitive noise
+- Ensures cognition remains externalized and composable
+- Preserves system-level observability
+
 ## 8. Tech Stack
+
 - **Core Language**: Python 3.11+
 - **Package Management**: uv
 - **Asynchronous Framework**: asyncio / aiofiles
 - **Data Validation**: Pydantic v2
 
 ## 9. Storage & Memory Collaboration Model
+
 AegisOS adopts a "Desk + Brain" dual storage model, clearly dividing the responsibilities between `WorkspaceManager` and `MemoryManager`:
 
 ### 9.1 WorkspaceManager (Desk / External Hard Drive)
+
 - **Positioning**: Manages **persistent data assets (Artifacts)** and **multi-agent shared environments (Blackboard)**.
 - **Responsibilities**:
     - **Big Data Handling**: Stores large files (requirement docs, source code, datasets) that LLMs cannot fit directly into context.
@@ -175,6 +213,7 @@ AegisOS adopts a "Desk + Brain" dual storage model, clearly dividing the respons
 - **Collaboration Mode**: Passing file paths via `context_pointer` in AACP messages.
 
 ### 9.2 MemoryManager (Brain / Cognitive Cache)
+
 - **Positioning**: Manages **cognitive continuity**, **session context**, and **Token window safety**.
 - **Responsibilities**:
     - **Hot Memory**: Maintains recent dialogue history and Chain of Thought, implementing automatic truncation and Token optimization.

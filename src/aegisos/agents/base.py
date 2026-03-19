@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import uuid
+import json
 from typing import List, Dict, Any, Optional, Type, Union
 from pydantic import BaseModel, Field
 from aegisos.core.protocol import AACPMessage, AACPIntent, parse_agent_uri
@@ -19,10 +20,10 @@ class AACPResponse(BaseModel):
     """
     receiver: Optional[str] = Field(None, description="URI of the target receiver or 'BROADCAST'. If None, no message is sent.")
     intent: AACPIntent = Field(default=AACPIntent.INFORM, description="Message intent (REQUEST, INFORM, REPLY, etc.)")
-    action: Optional[AACPAction] = Field(None, description="Standard Action (optional). If provided, it will be filled into payload['action']")
-    payload: Dict[str, Any] = Field(default_factory=dict, description="Specific business data or instruction content")
-    context_pointer: Optional[str] = Field(None, description="File path in the Workspace (for passing large data)")
-    thought: Optional[str] = Field(None, description="Internal reasoning process of the Agent (Chain of Thought)")
+    action: Optional[Dict[str, Any]] = Field(None, description="Structured Action: {'name': '...', 'args': {...}}. Mandatory for REQUEST.")
+    payload: Dict[str, Any] = Field(default_factory=dict, description="Transient data (non-persistent)")
+    context_pointer: Optional[Union[str, Dict[str, Any]]] = Field(None, description="Cognitive state pointer (index + directive)")
+    thought: Optional[str] = Field(None, description="Internal reasoning process (Chain of Thought)")
 
 class AACPAgent:
     """
@@ -91,19 +92,20 @@ class AACPAgent:
 
     async def handle_message(self, message: AACPMessage):
         """
-        Process incoming AACP messages: record history and trigger reasoning.
+        Process incoming AACP messages: inject minimal context index and record history.
         """
         logger.info(f"[{self.agent_id}] Received message from {message.sender}: {message.intent}")
         
-        # Convert AACP message to text understandable by LLM
-        # Note: Here we only record the payload; large data is handled asynchronously via context_pointer
+        # --- Message Representation for LLM ---
         msg_str = (
             f"FROM: {message.sender}\n"
             f"INTENT: {message.intent}\n"
-            f"PAYLOAD: {message.payload}\n"
+            f"PAYLOAD: {json.dumps(message.payload)}\n"
         )
+        
+        # --- Cognitive Architecture: Minimal Context Index ---
         if message.context_pointer:
-            msg_str += f"CONTEXT_POINTER: {message.context_pointer}\n"
+            msg_str += self._format_cognitive_index(message.context_pointer)
 
         # Record to memory
         await self.memory.add_message(role="user", content=msg_str)
@@ -111,9 +113,25 @@ class AACPAgent:
         # Automatically trigger a reaction
         await self.think()
 
+    def _format_cognitive_index(self, context_pointer: Union[str, Dict[str, Any]]) -> str:
+        """Standardized Index + Directive formatting for the prompt."""
+        if isinstance(context_pointer, dict):
+            cur_task = context_pointer.get("current_task", "N/A")
+            uri = context_pointer.get("uri", "unknown")
+            ctx_type = context_pointer.get("type", "unknown")
+            
+            return (
+                f"\n[COGNITIVE CONTEXT INDEX]\n"
+                f"Directive: {cur_task}\n"
+                f"Available State Reference: {uri} (Type: {ctx_type})\n"
+                f"NOTE: Use 'core.fs.read' if you need full details.\n"
+            )
+        else:
+            return f"\nCONTEXT_POINTER (URI): {context_pointer}\n"
+
     async def think(self):
         """
-        Core reasoning loop: call LLM to decide the next action.
+        Core reasoning loop: call LLM and enforce AACP Payload/Context separation.
         """
         logger.debug(f"[{self.agent_id}] Thinking...")
         
@@ -121,13 +139,12 @@ class AACPAgent:
             # Prepare messages
             messages = self.memory.get_context()
             
-            # Simple JSON mode guidance (standard for DeepSeek/OpenAI/Claude-via-OpenRouter)
-            # Ensure "json" is in the system or last user message
-            json_guidance = "\n\nResponse must be a valid JSON object."
+            # Simple JSON mode guidance
+            json_guidance = "\n\nResponse must be a valid JSON object matching AACPResponse schema."
             if messages and messages[-1]["role"] == "user":
                 messages[-1]["content"] += json_guidance
 
-            # Enforce Structured Outputs via json_object
+            # Enforce Structured Outputs
             response: AACPResponse = await self.llm.generate(
                 messages=messages,
                 response_model=AACPResponse
@@ -135,90 +152,94 @@ class AACPAgent:
             
             logger.info(f"[{self.agent_id}] Thought: {response.thought}")
             
-            # Record the Agent's own reasoning and actions
+            # --- Enforce Payload/Context Separation ---
+            final_payload = response.payload.copy()
+            if response.action:
+                final_payload["action"] = response.action
+
+            # Record reasoning in memory
             action_desc = f"THOUGHT: {response.thought}\n"
             if response.receiver:
-                action_desc += f"ACTION: {response.intent} to {response.receiver}"
+                action_desc += f"DECISION: {response.intent} to {response.receiver}\n"
                 if response.action:
-                    action_desc += f" (Action: {response.action})"
+                    action_desc += f"ACTION: {json.dumps(response.action)}\n"
             else:
-                action_desc += "ACTION: No further action required."
-                logger.warning(f"[{self.agent_id}] Decision: No action decided by LLM.")
+                action_desc += "DECISION: No further action required."
                 
-            # Record the assistant's reply to memory
             await self.memory.add_message(role="assistant", content=action_desc)
 
             if not response.receiver:
                 return
 
-            # If the LLM specifies a standard Action, inject it into the payload
-            if response.action:
-                response.payload["action"] = response.action.value
-
-            # --- Special Logic: Self-executing Action loop (Reflexion/Skills) ---
-            # If the Agent decides to send a REQUEST to itself, execute it directly
-            # Support exact ID match OR role@local/role@instance_id match
+            # --- Special Logic: Self-executing Action loop (Reflexion) ---
             target_uri = response.receiver
             role, inst, _ = parse_agent_uri(target_uri) if target_uri else (None, None, None)
-            
             is_self_exec = (
                 target_uri == self.agent_id or 
                 (role == self.role and inst in ["local", CONFIG.instance_id])
             )
 
             if is_self_exec and response.intent == AACPIntent.REQUEST:
-                action_name = response.payload.get("action")
+                action_obj = response.action
+                action_name = action_obj.get("name") if action_obj else "unknown"
                 logger.info(f"[{self.agent_id}] Triggering self-execution: {action_name}")
                 
-                result_str = ""
+                success = False
+                result_content = ""
                 
-                # 1. Check if it's a registered Skill
                 if action_name in self.skills:
                     skill_res = await self.skills[action_name].execute(
-                        payload=response.payload,
+                        payload=action_obj.get("args", {}),
                         context={
                             "workspace_path": str(self.workspace.root_path) if self.workspace else None,
                             "agent_id": self.agent_id
                         }
                     )
-                    result_str = (
-                        f"SKILL_RESULT ({action_name}):\n"
-                        f"SUCCESS: {skill_res.success}\n"
-                        f"DATA: {skill_res.data}\n"
-                        f"ERROR: {skill_res.error}\n"
-                    )
-                
-                # 2. Check if it's a built-in Code Execution
-                elif action_name in [AACPAction.CODE_EXEC, AACPAction.PYTHON_RUN]:
-                    code = response.payload.get("code", "")
+                    success = skill_res.success
+                    result_content = json.dumps(skill_res.data) if success else str(skill_res.error)
+                elif action_name in [AACPAction.CODE_EXEC.value, AACPAction.PYTHON_RUN.value]:
+                    code = action_obj.get("args", {}).get("code", "")
                     if self.sandbox and code:
-                        result = await self.sandbox.run_python(code)
-                        result_str = (
-                            f"EXECUTION_RESULT:\n"
-                            f"EXIT_CODE: {result.exit_code}\n"
-                            f"STDOUT: {result.stdout}\n"
-                            f"STDERR: {result.stderr}\n"
+                        sandbox_res = await self.sandbox.run_python(code)
+                        success = (sandbox_res.exit_code == 0)
+                        result_content = sandbox_res.stdout if success else f"STDOUT: {sandbox_res.stdout}\nSTDERR: {sandbox_res.stderr}"
+                    else:
+                        result_content = "ERROR: Sandbox not available or code is empty."
+                else:
+                    result_content = f"ERROR: Unknown action or skill '{action_name}'"
+
+                # --- Reflexion: Index + Directive pattern (Externalized Results/Errors) ---
+                if not success:
+                    # Write full error log to workspace
+                    error_uri = f"errors/{action_name}_{uuid.uuid4().hex[:4]}.log"
+                    if self.workspace:
+                        await self.workspace.write_file(error_uri, result_content)
+                        feedback = (
+                            f"ACTION_FAILURE: '{action_name}' failed.\n"
+                            + self._format_cognitive_index({
+                                "type": "error",
+                                "uri": error_uri,
+                                "current_task": f"fix_{action_name}"
+                            })
                         )
                     else:
-                        result_str = "ERROR: Sandbox not available or code is empty."
-                
+                        feedback = f"ACTION_FAILURE: '{action_name}' failed. Details: {result_content}"
                 else:
-                    result_str = f"ERROR: Unknown action or skill '{action_name}'"
-
-                # Store the result in memory as feedback and re-think
-                await self.memory.add_message(role="user", content=result_str)
-                await self.think()
+                    # For success, if result is small, return directly; if large, can be externalized too
+                    # (Here we keep it simple: data directly for now unless it's huge)
+                    feedback = f"ACTION_SUCCESS: '{action_name}' completed.\nRESULT: {result_content}"
+                
+                await self.memory.add_message(role="user", content=feedback)
+                await self.think() # Reflexive loop
                 return
             # ------------------------------------
-
-            logger.info(f"[{self.agent_id}] Decision: {response.intent} -> {response.receiver}")
 
             # Construct and send the actual AACPMessage
             out_msg = AACPMessage(
                 sender=self.agent_id,
                 receiver=response.receiver,
                 intent=response.intent,
-                payload=response.payload,
+                payload=final_payload,
                 context_pointer=response.context_pointer
             )
 
@@ -229,7 +250,6 @@ class AACPAgent:
                 
         except Exception as e:
             logger.error(f"[{self.agent_id}] Thinking failed: {e}", exc_info=True)
-            # Send error message feedback
             if self.dispatcher:
                 error_msg = AACPMessage(
                     sender=self.agent_id,

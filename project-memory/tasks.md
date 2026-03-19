@@ -28,13 +28,12 @@
 - [x] **SandboxRunner**: Implemented Python code execution isolation based on restricted subprocesses.
 - [ ] **HITL Interceptor**: Define approval workflows for sensitive actions.
 
-### Task 8: First Real Task Loop (Single-Node MVP)
-
-- [x] **Coordinator/Worker Implementation**: Implemented specialized agents for task orchestration and execution.
-- [x] **WebScraping Skill**: Implemented a pluggable `WebScraperSkill` using `httpx`.
-- [x] **Workspace-based Task Flow**: Validated that agents can read/write via `context_pointer`.
-- [x] **End-to-End Logic Verification**: Verified full lifecycle via mock tests.
-- [x] **Runnable Demo**: Provided `examples/fetch_and_report.py`.
+- [x] **First Real Task Loop (Single-Node MVP)**:
+    - [x] **Coordinator/Worker Implementation**: Refactored to align with Cognitive Architecture Mapping (Externalized State).
+    - [x] **WebScraping Skill**: Implemented a pluggable `WebScraperSkill` using `httpx`.
+    - [x] **Workspace-based Task Flow**: Validated that agents can read/write via `context_pointer` and structured indexing.
+    - [x] **End-to-End Logic Verification**: Verified full lifecycle via mock tests in `tests/test_cognitive_architecture.py`.
+    - [x] **Runnable Demo**: Provided `examples/fetch_and_report.py`.
 
 ---
 *Note: For long-term planning, please see [Roadmap](./roadmap.md)*
