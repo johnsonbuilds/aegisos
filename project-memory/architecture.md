@@ -46,6 +46,10 @@ This layer is essential for evolving AegisOS into a self-organizing agent econom
 ### 4.4 AACP (Agent-to-Agent Communication Protocol)
 - **Format**: JSON (Pydantic model).
 - **Fields**: `message_id`, `timestamp`, `sender`, `receiver`, `intent`, `payload`, `context_pointer`.
+- **Layer Mapping**:
+    - **context_pointer = cognitive state (Cognitive Layer)**: Index + Directive.
+    - **payload = execution data (Execution Layer)**: Transient input for actions.
+    - **intent = control signal (Dispatch Layer)**: Communication primitives.
 - **Communication Primitives (Intent)**: REQUEST, PROPOSE, INFORM, TASK_COMPLETE, ERROR, SPAWN, TERMINATE.
 - **Business Actions (Action)**: Business logic is defined via `payload["action"]` and normalized by the `AACPAction` enum (e.g., `core.exec.*`, `core.fs.*`), achieving complete decoupling between the protocol and business layers.
 
@@ -60,7 +64,33 @@ Uses an email-like addressing standard: `{role}_{uuid}@{instance_id}`.
 - **Remote Address**: `planner@macbook-pro.local` (Tailscale) or `planner@{public_key}` (Nostr/P2P).
 
 ### 5.2 Shared Workspace Pointer (Context Pointer)
-Agents do not pass large data blocks between them; instead, they pass relative file paths within the workspace via the `context_pointer` in AACP messages.
+Agents do not pass large data blocks between them; instead, they pass state references and execution pointers via the `context_pointer`.
+
+- **Structure**:
+    - `current_task`: Execution pointer (e.g., "task_3"). Allows zero-thinking execution by the receiver.
+    - `uri`: State reference (e.g., "_workspace/plan.json"). Provides deep information on-demand.
+
+#### 5.2.1 Payload Responsibility Boundary (Precise Definition)
+The `payload` serves strictly as "action input" and "transient state," and must adhere to the following constraints:
+
+**✅ Whitelist (Allowed):**
+1. **Action (Core)**: Target capability and its arguments (e.g., `core.fs.write`).
+2. **Tool / Execution Parameters**: Runtime parameters passed to specific tools.
+3. **Transient Return Values**: Non-persistent, non-critical, and non-reusable states (e.g., `status: started`).
+
+**❌ Blacklist (Strictly Forbidden):**
+1. **Task Definition**: Must not contain specific steps or task descriptions.
+2. **Plan / Graph**: Execution plans must be stored in the Workspace.
+3. **Memory / History**: Dialogue history or cognitive records.
+4. **Long-term Value Reasoning (Analysis)**: Any valuable analytical results must be stored in workspace files.
+
+#### 5.2.2 Context Pointer Responsibility Boundary
+The `context_pointer` represents the "State of the World" and must include two complementary types of information:
+
+1. **Execution Pointer**: `current_task`. Ensures the Agent knows exactly what to execute without further reasoning.
+2. **State Reference**: `uri`. Points to physical files in the Workspace, allowing the Agent to read deep information on-demand.
+
+---
 
 ### 5.3 Dynamic Lifecycle (Kernel Control)
 The main proxy dynamically creates and destroys temporary sub-agents by sending SPAWN/TERMINATE messages to `system@local`, achieving on-demand resource allocation.
@@ -104,6 +134,28 @@ This is the core soul that distinguishes AegisOS from ordinary scripts, transfor
 ### 7.4 State Tracking & Final Verification
 - **Theoretical Mapping**: Mapped to the **Kernel System Agent (system@local)** and **Lifecycle Management**.
 - **Implementation Specification**: When a sub-task is completed, a `TASK_COMPLETE` message must be sent. The main agent performs result acceptance (Critic) via the workspace; once accepted, the main agent must send a `TERMINATE` instruction to the system agent to gracefully destroy the temporary sub-agent and release system resources.
+
+### 7.5 Coordinator-Worker Collaboration Pattern
+AegisOS enforces a strict separation between decision-making and execution. This design choice is part of the **Phase-1 architecture**, prioritizing determinism, debuggability, and system stability.
+
+- **Coordinator (Main Agent / Planner)**:
+    - Responsible for reading/updating the global plan (`plan.json`).
+    - Decides the next task to execute.
+    - Writes the `current_task` into the `context_pointer` during dispatch.
+- **Worker (Execution Agent)**:
+    - Only responsible for executing the `current_task` assigned in the `context_pointer`.
+    - Does not make decisions about task sequencing or overall planning.
+
+**Future Evolution**: 
+Subsequent iterations will introduce **Hierarchical Delegation**, enabling controlled decentralization of decision power without compromising global consistency.
+
+**Standard Workflow**:
+1. **Plan Generation**: Coordinator creates `_workspace/plan.json`.
+2. **Task Selection**: Coordinator reads the plan and selects a pending task (e.g., `task_2`).
+3. **Context Injection**: Coordinator writes `{"uri": "_workspace/plan.json", "current_task": "task_2"}` into the `context_pointer`.
+4. **Dispatch**: Coordinator sends a message with `intent: TASK_EXECUTE` to the Worker.
+5. **Execution & Feedback**: Worker executes the task, writes results to the workspace, and sends `TASK_COMPLETE` back to the Coordinator.
+6. **Plan Update**: Coordinator updates `plan.json` and repeats the cycle.
 
 ## 8. Tech Stack
 - **Core Language**: Python 3.11+

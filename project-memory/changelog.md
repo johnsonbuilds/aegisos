@@ -1,5 +1,11 @@
 # AegisOS Changelog
 
+## [0.1.5] - 2026-03-19
+### Added
+- **Architectural Refinement**: Formalized the responsibility boundary between `payload` (Execution Layer) and `context_pointer` (Cognitive Layer).
+- **Coordinator-Worker Pattern**: Standardized the 5-step task execution workflow and role separation in `architecture.md`.
+- **System Design Decisions**: Added Decision 15 and 16 to `decisions.md` regarding layer decoupling and role separation.
+
 ## [0.1.4] - 2026-03-17
 ### Added
 - **Pluggable Skills**: Introduced `BaseSkill` and a dynamic skill registry in `AACPAgent`.

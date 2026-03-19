@@ -91,3 +91,22 @@
   - Efficiency: Avoid high on-chain costs for every interaction
   - Flexibility: Allow complex multi-agent workflows off-chain
   - Trust: Use on-chain settlement for final value exchange
+
+## 15. Responsibility Boundary: context_pointer vs. payload
+- **Decision**: Strictly separate transient execution data from persistent cognitive state.
+    - `payload`: Transient input for the immediate action.
+    - `context_pointer`: Cognitive state, including execution pointers (`current_task`) and state references (`uri`).
+- **Rationale**:
+    - Minimizes token usage by passing references instead of full data.
+    - Enables "zero-thinking" execution for workers.
+    - Ensures persistent state is maintained in the workspace, not the message history.
+
+## 16. Role Separation: Coordinator-Worker Pattern
+- **Decision**: Decouple the "Decision Power" from "Execution Power" (Phase-1 design).
+    - Coordinator: Owns the plan and decides "what to do".
+    - Worker: Owns the execution of the "current task" and decides "how to do it".
+- **Rationale**:
+    - **Stability & Debuggability**: In Phase-1, strict separation ensures determinism and makes the collaboration loop easier to trace.
+    - **Planning Simplicity**: Prevents planning complexity from overwhelming individual execution agents.
+    - **Scalability**: Enables scalable multi-agent collaboration with a centralized or federated planning layer.
+- **Roadmap**: Future iterations will evolve this into **Hierarchical Delegation**, allowing for controlled decentralization of decision-making.
