@@ -9,6 +9,7 @@ source = { editable = "." }
 dependencies = [
     { name = "aiofiles" },
     { name = "anthropic" },
+    { name = "httpx" },
     { name = "openai" },
     { name = "pydantic" },
 ]
@@ -23,6 +24,7 @@ dev = [
 requires-dist = [
     { name = "aiofiles", specifier = ">=25.1.0" },
     { name = "anthropic", specifier = ">=0.84.0" },
+    { name = "httpx", specifier = ">=0.28.1" },
     { name = "openai", specifier = ">=2.26.0" },
     { name = "pydantic", specifier = ">=2.12.5" },
 ]

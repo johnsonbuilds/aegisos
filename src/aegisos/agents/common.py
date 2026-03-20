@@ -60,5 +60,5 @@ class WorkerAgent(AACPAgent):
             **kwargs
         )
         # Register specialized skills
-        from aegisos.agents.skills.web_scraper import WebScraperSkill
-        self.add_skill(WebScraperSkill())
+        from aegisos.agents.skills.web_fetch import WebFetchSkill
+        self.add_skill(WebFetchSkill())

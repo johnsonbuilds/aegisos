@@ -11,7 +11,12 @@
 ## [0.1.4] - 2026-03-17
 ### Added
 - **Pluggable Skills**: Introduced `BaseSkill` and a dynamic skill registry in `AACPAgent`.
-- **WebScraper Skill**: Implemented `WebScraperSkill` (using `httpx`) as an external plugin, decoupling it from the core protocol.
+- **WebFetch Architecture Refactor**:
+  - Implemented `BaseFetchEngine` for decoupling fetch logic from skill execution.
+  - Added `SimpleHttpEngine` as the default pluggable engine.
+  - Enhanced `WebFetchSkill` to support workspace persistence, ensuring large payloads don't clog the AACP bus.
+  - Migrated HTML-to-Markdown conversion to the unified `WebFetchSkill`.
+  - Updated `WorkerAgent` to use the new `WebFetchSkill` via capability injection.
 - **Common Agents**: Added `CoordinatorAgent` and `WorkerAgent` for standard task orchestration.
 - **SandboxRunner**: Completed the initial `SandboxRunner` based on restricted subprocesses.
 - **Task 8 Demo**: Created `examples/fetch_and_report.py` to demonstrate the full agent collaboration loop.

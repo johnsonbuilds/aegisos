@@ -31,6 +31,7 @@
 - [x] **First Real Task Loop (Single-Node MVP)**:
     - [x] **Coordinator/Worker Implementation**: Refactored to align with Cognitive Architecture Mapping (Externalized State).
     - [x] **WebScraping Skill**: Implemented a pluggable `WebScraperSkill` using `httpx`.
+    - [x] **Pluggable WebFetch Architecture**: Refactored `WebFetchSkill` with `BaseFetchEngine` abstraction, supporting multiple engines (MVP: `SimpleHttpEngine`).
     - [x] **Workspace-based Task Flow**: Validated that agents can read/write via `context_pointer` and structured indexing.
     - [x] **End-to-End Logic Verification**: Verified full lifecycle via mock tests in `tests/test_cognitive_architecture.py`.
     - [x] **Runnable Demo**: Provided `examples/fetch_and_report.py`.

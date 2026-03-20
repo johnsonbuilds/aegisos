@@ -35,6 +35,7 @@ class WebFetchPayload(ActionPayload):
     """Parameter specification for core.cog.web_fetch."""
     url: str = Field(..., description="URL to fetch")
     mode: str = Field("markdown", description="Output mode: 'raw', 'markdown', 'text'")
+    engine: str = Field("simple", description="Engine to use: 'simple'")
 
 # Action to Payload model mapping (for automatic validation)
 ACTION_SCHEMAS: Dict[AACPAction, Type[ActionPayload]] = {

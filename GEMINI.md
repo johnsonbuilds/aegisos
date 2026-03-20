@@ -26,16 +26,20 @@ Follow this cycle for tasks in each Phase:
 
 ### 2. Plan: Clarify implementation details, interface definitions, and testing strategies
 
+- **Critical Review (MANDATORY)**: Upon receiving any task or requirement, **ASSUME it may have issues**. Critically analyze the request for architectural conflicts , implementation inconsistencies, or ambiguities.
+- **Challenge & Clarify**: **YOU MUST** explicitly raise any reasonable doubts or questions to the human developer. **DO NOT** begin coding until all critical points are clarified and confirmed.
 - **Constraint**: Must strictly adhere to the design principles and technical decisions defined in `project-memory/architecture.md` and `project-memory/decisions.md`.
 
 ### 3. Act: Write/modify code
 
 - **Constraint**: Ensure implementation is consistent with the planned strategy and aligns with the existing architecture and project decisions.
+- **Surgical Edits**: Use `replace` for precise edits and `write_file` only for new files.
 
-### 4. Validate
+### 4. Validate & Review
 
-- Run targeted unit tests: `pytest tests/test_xxx.py`
-- Run phase-specific E2E scripts: `python scripts/test_e2e_xxx.py`
+- **Validation**: Run targeted unit tests (`pytest tests/test_xxx.py`) and phase-specific E2E scripts.
+- **Code Review (MANDATORY)**: After implementation and testing, present the changes as a **Review Request**. Briefly explain the technical rationale.
+- **Approval Gate**: **STOP and WAIT** for the human developer to say "Review Approved". Do not proceed to final updates or commits without explicit approval.
 
 ### 5. Commit: Submit code and summarize the current Phase after verification
 
