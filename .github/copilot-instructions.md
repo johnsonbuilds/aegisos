@@ -50,7 +50,7 @@ Follow this cycle for tasks in each Phase:
 - Update task status in `tasks.md`.
 - Record daily development progress in `changelog.md`.
 - If there are new technical decisions, update `decisions.md`.
-- Do not modify `vision.md` unless explicitly instructed.
+- Do not modify `vision.md` and `roadmap.md` unless explicitly instructed.
 - Do not modify `architecture.md` unless the architecture changes.
 
 ## 3. Module Responsibility Division

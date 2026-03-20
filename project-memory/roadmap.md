@@ -1,114 +1,157 @@
 # AegisOS Roadmap
 
 **Responsibility**
+
 - Defines the long-term vision, phases, and core capabilities of the system.
 - Answers what must be true at each stage and why, not how to implement it.
 
-## Phase 1: The Core Kernel (Largely Completed)
-**Goal**: Build the "motherboard" of AegisOS, implementing multi-agent dynamic collaboration under a standard protocol.
+---
 
-- [x] **AACP Protocol Definition**: Defined `AACPMessage` based on Pydantic v2, mandating the use of `context_pointer` to avoid passing large text blocks.
-- [x] **WorkspaceManager (Blackboard System)**: Implicated a shared workspace based on the local file system, with strict path traversal defense.
-- [x] **AegisDispatcher (Core Scheduler)**: An asynchronous event loop based on `asyncio`, supporting message routing, broadcasting, and lifecycle management.
-- [x] **Kernel System Agent**: Implemented the `system@local` kernel agent, supporting SPAWN/TERMINATE dynamic management.
-- [x] **E2E Collaboration Verification**: Dummy Agents ran through full-link tests including "Task Dispatch -> Dynamic Creation -> File I/O -> Destruction".
+## Phase 1: The Core Kernel (Completed)
 
-## Bridge Milestone: Single-Node MVP Baseline (Completed Ahead of Phase 2)
-**Goal**: Prove the architecture can complete a real task loop before entering runtime hardening.
+**Goal**: Establish the foundational execution and communication substrate for agents.
 
-- [x] **Coordinator -> Worker -> Workspace -> Completion Loop**:
-    - SPAWN a worker agent from a coordinator.
-    - Execute a real task (web fetch / reporting).
-    - Return result through AACP.
-    - Support Worker termination flow.
-- [x] **Real Tool Integration**:
-    - Integrated HTTP fetch / scraping capability.
-    - Avoided mock-only task execution.
-- [x] **Workspace-based Task Flow**:
-    - Wrote tasks and results into workspace files.
-    - Passed `context_pointer` instead of large payloads.
-    - Generated output artifacts such as reports.
-- [x] **Runnable End-to-End Example**:
-    - Example: `examples/fetch_and_report.py`.
+### Capabilities
+
+- Standardized agent-to-agent communication via AACP protocol
+- Shared workspace for persistent state (Blackboard model)
+- Dynamic agent lifecycle (spawn / execute / terminate)
+- Deterministic single-node collaboration loop
+
+---
+
+## Bridge Milestone: Single-Node MVP Baseline (Completed)
+
+**Goal**: Validate that real-world tasks can run end-to-end on the architecture.
+
+### Capabilities
+
+- Real task execution with external tools (e.g., web fetch)
+- Workspace-driven task flow via context pointers
+- End-to-end execution from planning → execution → result persistence
+
+---
 
 ## Phase 2: System Validation & Runtime Guardrails (Current Phase)
-**Goal**: Turn the single-node MVP into a stable runtime by adding observability, bounded execution, termination correctness, and real-task validation gates.
 
-- [ ] **Observability First**:
-    - Log full AACP message flow with runtime trace metadata.
-    - Trace task lifecycle and support session-level inspection.
-    - Audit workspace writes with agent/task provenance.
-- [ ] **Runtime Guardrails**:
-    - Add `max_steps` loop protection for all agents.
-    - Add bounded retry with exponential backoff.
-    - Guarantee `TASK_COMPLETE -> TERMINATE` cleanup.
-    - Enforce strong `plan.json` state transitions and atomic updates.
-- [ ] **Minimal Safety**:
-    - Add task/tool timeout and kill switch.
-    - Tighten the current subprocess sandbox without overclaiming Zero-Trust completeness.
-- [ ] **Real Task Validation**:
-    - First stable loop: API monitor with deterministic execution path.
-    - Daily web report loop.
-    - Daily content generation loop.
-- [ ] **Validation Gates**:
-    - Runtime Ready gate.
-    - First 24h stable real-loop gate.
-    - 72h continuous validation gate.
+**Goal**: Transform the system from a working prototype into a stable, observable runtime.
 
-## Phase 3: The Brain & Memory
-**Goal**: Improve cognition efficiency only after the runtime becomes observable and stable.
+### Capabilities
 
-- [ ] **LLM Engine Refinement**:
-    - Continue Structured Outputs hardening across providers.
-    - Improve prompt stability for `AACPResponse` generation.
-- [ ] **MemoryManager (Memory Engine)**:
-    - [ ] **Hot Memory**: Token-aware sliding window for recent dialogue and task status.
-    - [ ] **Cold Memory**: Asynchronously extract facts into a lightweight vector store retrievable via RAG.
-    - [ ] **Knowledge Distillation**: Background extraction of durable facts/preferences.
-- [ ] **Dynamic Skill Routing**:
-    - Introduce a lightweight classifier to mount only the most relevant skill prompts.
-- [ ] **Prompt Caching**:
-    - Reduce latency and cost for repeated resident instructions.
-- [ ] **Early Multi-Node Communication (Exploratory)**:
-    - Enable basic AACP messaging across nodes.
-    - Validate remote agent addressing and simple cross-node execution.
+### Observability
 
-## Phase 4: The Shield & Ecosystem
-**Goal**: Ensure code execution safety and "legally hijack" the massive community skill market of OpenClaw.
+- Full visibility into message flow, task lifecycle, and workspace mutations
+- Ability to trace, debug, and replay execution at session level
 
-- [ ] **SandboxRunner (Security Sandbox)**: Initially using restricted subprocesses, later upgrading to Docker or Firecracker containers.
-- [ ] **HITL Fine-grained Permission Interceptor**: Sensitive actions (sending emails, committing code, connecting to the external network) trigger [Approve/Deny] authorization cards.
-- [ ] **OpenClaw Compatibility Layer**: Automatically parse OpenClaw's `skill.md` and `action.py`, enabling plug-and-play ecosystem compatibility from day one.
+### Bounded Execution
 
-## Phase 5: The Professional Team
-**Goal**: Integrate open-source AI powerhouses for commercial-grade productivity.
+- All agent loops and tool executions are strictly bounded and controllable
+- System prevents infinite loops, uncontrolled retries, and runaway execution
 
-- [ ] **OpenCode Programming Brain**: Encapsulated as `Coder_Agent`, performing closed-loop testing and maintaining project code in a cloud sandbox.
-- [ ] **Firecrawl & Scrapling Data Armor**: Integrate visualized web-to-markdown conversion and heavy anti-crawler data collection.
-- [ ] **CLI-Anything Action Translation Layer**: Wrap GUI software into headless JSON commands.
-- [ ] **SOP Static Workflow Engine**: Support reading YAML-formatted SOP files, with standard collaboration processes allocated by a Planner.
+### Deterministic Task Lifecycle
 
-## Phase 6: Economic Layer (Early Agent Economy)
+- Task state transitions are explicit, enforceable, and consistent
+- Agent lifecycle is fully cleaned up without zombie processes
 
-**Goal**: Enable basic economic interactions between agents.
+### Failure Handling & Safety
 
-- [ ] **Task Pricing Model**:
-    - Allow agents to attach price proposals to tasks
-- [ ] **Simple Payment Integration**:
-    - Integrate testnet-based payments (e.g., stablecoins)
-- [ ] **Escrow Mechanism (Minimal)**:
-    - Lock funds before task execution
-    - Release funds upon TASK_COMPLETE
-- [ ] **Agent Identity (Public Key)**:
-    - Bind agent identity to cryptographic keys
+- System degrades gracefully under failure (timeouts, retries, termination)
+- Execution remains contained within controlled and safe boundaries
 
-## Phase 7: The Global Agent Network
-**Goal**: Break through single-machine limitations to achieve distributed collaboration across devices and entities.
+### Real-world Validation
 
-- [ ] **Evolutionary Egress Gateway Development**:
-    - [ ] **Phase A**: URI resolution interception and Tailscale virtual LAN routing.
-    - [ ] **Phase B**: Integrate Nostr Relays for public-key routing across firewalls.
-    - [ ] **Phase C**: Fully enable Libp2p/WebRTC P2P hole punching.
-- [ ] **AegisOS-Net (Go Sidecar)**: Independently develop a lightweight network daemon based on `go-libp2p` for DHT addressing.
-- [ ] **IPC Communication Optimization**: Establish a high-performance cross-language communication bridge based on Unix Domain Sockets / gRPC.
-- [ ] **CI/CD One-click Packaging System**: Cross-compile the Go engine and bundle it as a static resource within the Python Wheel package.
+- At least one real task loop can run continuously and reliably
+- System proves stability over long-running execution (24h → 72h)
+
+---
+
+## Phase 3: Cognitive Efficiency & Memory
+
+**Goal**: Improve intelligence efficiency only after runtime stability is guaranteed.
+
+### Capabilities
+
+- Efficient context usage with controlled token footprint
+- Persistent memory across sessions (short-term + long-term)
+- Selective context retrieval instead of full-state injection
+- Stable and predictable agent reasoning behavior
+
+---
+
+## Phase 4: Security & Ecosystem Integration
+
+**Goal**: Ensure safe execution and leverage external ecosystems.
+
+### Capabilities
+
+- Strong isolation between agent execution and host environment
+- Fine-grained permission control for sensitive operations (HITL)
+- Compatibility with external skill ecosystems (e.g., OpenClaw)
+
+---
+
+## Phase 5: Professional Agent System
+
+**Goal**: Enable production-grade multi-agent workflows.
+
+### Capabilities
+
+- Specialized agents for coding, data extraction, and workflow automation
+- Deterministic and repeatable multi-step workflows (SOP-based)
+- Integration with real-world tools and services at scale
+
+---
+
+## Phase 6: Local Agent Network
+
+**Goal**: Goal: Enable reliable multi-node agent collaboration in a trusted local network.
+
+### Capabilities
+
+### 1️⃣ Cross-node Communication
+
+- Agents can send/receive AACP messages across instances
+- Node addressing works (`agent@node`)
+
+### 2️⃣ Distributed Task Execution
+
+- Tasks can be delegated to agents on other nodes
+- Results flow back correctly
+
+### 3️⃣Network Reliability Model
+
+- System tolerates node delay / partial failure
+- No system crash due to remote issues
+
+### 4️⃣ Identity (Basic)
+
+- Each node has a unique identity (not necessarily cryptographic yet)
+- Routing is deterministic
+
+### 5️⃣ Observability Across Nodes
+
+- You can trace a task across machines
+
+---
+
+## Phase 7: Economic Layer
+
+**Goal**: Enable agents to participate in economic interactions.
+
+### Capabilities
+
+- Agents can price, negotiate, and execute tasks with value exchange
+- Basic trust mechanisms for task execution (escrow / settlement)
+- Persistent agent identity and ownership
+
+---
+
+## Phase 8: Global Agent Network
+
+**Goal**: Scale from single-node execution to a distributed agent network.
+
+### Capabilities
+
+- Agents are globally addressable and discoverable
+- Cross-node communication and collaboration
+- Decentralized routing and peer-to-peer execution
