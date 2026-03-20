@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 from typing import Dict, Callable, Coroutine, Any, Optional
 from aegisos.core.protocol import AACPMessage, AACPIntent, parse_agent_uri
@@ -17,6 +18,7 @@ class AegisDispatcher:
         self.queue: asyncio.Queue[AACPMessage] = asyncio.Queue()
         self._is_running = False
         self._loop_task: Optional[asyncio.Task] = None
+        self._trace_lock = asyncio.Lock()
         self.default_llm = default_llm
         self.workspace = workspace
         
@@ -46,6 +48,7 @@ class AegisDispatcher:
         Send an AACP message to the queue.
         """
         await self.queue.put(message)
+        await self._trace_message(message, event="queued")
         logger.debug(f"Message {message.message_id} from {message.sender} to {message.receiver} queued.")
 
     async def start(self):
@@ -61,6 +64,7 @@ class AegisDispatcher:
         """Stop the event loop."""
         self._is_running = False
         if self._loop_task:
+            await self.queue.join()
             self._loop_task.cancel()
             try:
                 await self._loop_task
@@ -101,6 +105,7 @@ class AegisDispatcher:
             # 2. Actual remote delivery if not local
             await self.send_to_remote(resolved_id, message)
         else:
+            await self._trace_message(message, event="dropped", resolved_receiver=resolved_id)
             logger.error(f"Target Agent '{target_uri}' could not be resolved. Message dropped.")
 
     def resolve_target(self, target_uri: str) -> str:
@@ -139,10 +144,12 @@ class AegisDispatcher:
         if instance_id == CONFIG.instance_id or instance_id == "local":
             # If instance_id matches current instance, it should theoretically be in self.agents;
             # reaching here means it's not registered.
+            await self._trace_message(message, event="local-delivery-failed", resolved_receiver=receiver_uri)
             logger.warning(f"Local delivery failed for {receiver_uri}, agent not registered.")
             return
 
         # Forward based on configured network mode
+        await self._trace_message(message, event="remote-forward", resolved_receiver=receiver_uri)
         if CONFIG.network_mode == NetworkMode.LOCAL:
             logger.warning(f"Network mode is LOCAL. Cannot send to remote instance: {instance_id}")
         elif CONFIG.network_mode == NetworkMode.TAILSCALE:
@@ -158,8 +165,70 @@ class AegisDispatcher:
         """Execute Agent callback."""
         try:
             await callback(message)
+            trace_event = "broadcast-delivered" if message.receiver == "BROADCAST" else "delivered"
+            await self._trace_message(message, event=trace_event, resolved_receiver=name)
         except Exception as e:
+            await self._trace_message(
+                message,
+                event="callback-error",
+                resolved_receiver=name,
+                error=str(e)
+            )
             logger.error(f"Error executing callback for Agent '{name}': {e}", exc_info=True)
+
+    def _extract_trace_metadata(self, message: AACPMessage) -> Dict[str, Any]:
+        """Extract runtime tracing metadata without extending the AACP protocol."""
+        session_id = getattr(self.workspace, "session_id", None)
+        task_id = None
+        context_type = None
+        if isinstance(message.context_pointer, dict):
+            task_id = message.context_pointer.get("current_task") or message.context_pointer.get("task_id")
+            context_type = message.context_pointer.get("type")
+
+        parent_message_id = None
+        if isinstance(message.payload, dict):
+            parent_message_id = message.payload.get("parent_message_id")
+            if parent_message_id is None:
+                trace_block = message.payload.get("trace")
+                if isinstance(trace_block, dict):
+                    parent_message_id = trace_block.get("parent_message_id")
+
+        return {
+            "session_id": session_id,
+            "task_id": task_id,
+            "context_type": context_type,
+            "parent_message_id": str(parent_message_id) if parent_message_id else None,
+        }
+
+    async def _trace_message(
+        self,
+        message: AACPMessage,
+        *,
+        event: str,
+        resolved_receiver: Optional[str] = None,
+        error: Optional[str] = None,
+    ):
+        """Persist dispatcher-level message trace entries when a workspace is available."""
+        if not self.workspace or not hasattr(self.workspace, "append_file"):
+            return
+
+        entry = {
+            "event": event,
+            "message_id": str(message.message_id),
+            "timestamp": message.timestamp.isoformat(),
+            "sender": message.sender,
+            "receiver": message.receiver,
+            "resolved_receiver": resolved_receiver,
+            "intent": message.intent.value if isinstance(message.intent, AACPIntent) else str(message.intent),
+            "error": error,
+            **self._extract_trace_metadata(message),
+        }
+
+        try:
+            async with self._trace_lock:
+                await self.workspace.append_file("logs/message_trace.jsonl", json.dumps(entry, ensure_ascii=False) + "\n")
+        except Exception as exc:
+            logger.warning(f"Failed to persist message trace: {exc}")
 
     async def _system_agent_callback(self, message: AACPMessage):
         """

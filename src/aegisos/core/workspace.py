@@ -37,6 +37,16 @@ class WorkspaceManager:
         # Return the relative path string relative to the root directory
         return str(target_path.relative_to(self.root_path))
 
+    async def append_file(self, filename: str, content: str) -> str:
+        """Asynchronously append content to a file."""
+        target_path = self._safe_path(filename)
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+
+        async with aiofiles.open(target_path, mode='a', encoding='utf-8') as f:
+            await f.write(content)
+
+        return str(target_path.relative_to(self.root_path))
+
     async def read_file(self, filepath: str) -> str:
         """Asynchronously read a file."""
         target_path = self._safe_path(filepath)

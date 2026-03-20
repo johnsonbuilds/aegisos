@@ -1,8 +1,10 @@
 import asyncio
+import json
 import pytest
 from aegisos.core.protocol import AACPMessage, AACPIntent
 from aegisos.core.dispatcher import AegisDispatcher
 from aegisos.core.config import CONFIG
+from aegisos.core.workspace import WorkspaceManager
 
 @pytest.mark.asyncio
 async def test_dispatcher_routing():
@@ -67,8 +69,9 @@ async def test_dispatcher_routing():
     await dispatcher.stop()
 
 @pytest.mark.asyncio
-async def test_dispatcher_invalid_target():
-    dispatcher = AegisDispatcher()
+async def test_dispatcher_invalid_target(tmp_path):
+    workspace = WorkspaceManager(base_dir=str(tmp_path), session_id="trace-drop")
+    dispatcher = AegisDispatcher(workspace=workspace)
     await dispatcher.start()
 
     # Send to a non-existent Agent
@@ -84,4 +87,54 @@ async def test_dispatcher_invalid_target():
     await asyncio.sleep(0.1)
     
     await dispatcher.stop()
-    # Currently mainly verifies it won't crash and will log the event
+    trace_content = await workspace.read_file("logs/message_trace.jsonl")
+    entries = [json.loads(line) for line in trace_content.splitlines() if line.strip()]
+
+    assert any(entry["event"] == "queued" for entry in entries)
+    assert any(entry["event"] == "local-delivery-failed" for entry in entries)
+    assert all(entry["session_id"] == "trace-drop" for entry in entries)
+
+@pytest.mark.asyncio
+async def test_dispatcher_persists_message_trace(tmp_path):
+    workspace = WorkspaceManager(base_dir=str(tmp_path), session_id="trace-session")
+    dispatcher = AegisDispatcher(workspace=workspace)
+
+    future_receiver = asyncio.Future()
+
+    async def callback_receiver(msg: AACPMessage):
+        future_receiver.set_result(msg)
+
+    sender_uri = f"sender@{CONFIG.instance_id}"
+    receiver_uri = f"receiver@{CONFIG.instance_id}"
+    dispatcher.register_agent(receiver_uri, callback_receiver)
+
+    await dispatcher.start()
+    try:
+        msg = AACPMessage(
+            sender=sender_uri,
+            receiver=receiver_uri,
+            intent=AACPIntent.REQUEST,
+            payload={"data": "trace-me"},
+            context_pointer={"type": "plan", "uri": "plan.json", "current_task": "task_1"}
+        )
+        await dispatcher.send_message(msg)
+
+        received_msg = await asyncio.wait_for(future_receiver, timeout=1.0)
+        assert received_msg.payload["data"] == "trace-me"
+    finally:
+        await dispatcher.stop()
+
+    trace_content = await workspace.read_file("logs/message_trace.jsonl")
+    entries = [json.loads(line) for line in trace_content.splitlines() if line.strip()]
+
+    assert len(entries) >= 2
+    queued_entry = next(entry for entry in entries if entry["event"] == "queued")
+    delivered_entry = next(entry for entry in entries if entry["event"] == "delivered")
+
+    assert queued_entry["message_id"] == delivered_entry["message_id"]
+    assert queued_entry["sender"] == sender_uri
+    assert queued_entry["receiver"] == receiver_uri
+    assert queued_entry["intent"] == AACPIntent.REQUEST.value
+    assert queued_entry["session_id"] == "trace-session"
+    assert queued_entry["task_id"] == "task_1"
+    assert delivered_entry["resolved_receiver"] == receiver_uri

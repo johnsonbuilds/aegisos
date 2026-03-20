@@ -1,5 +1,16 @@
 # AegisOS Changelog
 
+## [0.1.6] - 2026-03-20
+### Added
+- **Dispatcher Trace Log**: Added workspace-backed JSONL message tracing at `logs/message_trace.jsonl`, including delivery outcomes and runtime metadata such as `session_id` and `task_id`.
+
+### Changed
+- **Phase Rebaseline**: Promoted **System Validation & Runtime Guardrails** to the new Phase 2 after the single-node MVP baseline was proven.
+- **Roadmap Reshaping**: Archived the first real task loop as a completed bridge milestone and deferred cognition-efficiency work until after runtime stability.
+- **Execution Priorities**: Declared observability, loop guards, termination correctness, task-state safety, and timeout control as the Phase 2 entry gate for real-world validation.
+- **WorkspaceManager**: Added append support so runtime logs can be persisted through the same path-safe async file API.
+- **Dispatcher Shutdown**: Waits for queued messages to drain before stopping, preventing in-flight trace loss.
+
 ## [0.1.5] - 2026-03-19
 ### Changed
 - **Cognitive Architecture Mapping**: Strictly separated transient execution (`payload`) from persistent cognition (`context_pointer`).
