@@ -138,3 +138,104 @@ async def test_dispatcher_persists_message_trace(tmp_path):
     assert queued_entry["session_id"] == "trace-session"
     assert queued_entry["task_id"] == "task_1"
     assert delivered_entry["resolved_receiver"] == receiver_uri
+
+@pytest.mark.asyncio
+async def test_dispatcher_persists_task_timeline(tmp_path):
+    workspace = WorkspaceManager(base_dir=str(tmp_path), session_id="timeline-task")
+    dispatcher = AegisDispatcher(workspace=workspace)
+
+    future_receiver = asyncio.Future()
+
+    async def callback_receiver(msg: AACPMessage):
+        future_receiver.set_result(msg)
+
+    sender_uri = f"planner@{CONFIG.instance_id}"
+    receiver_uri = f"worker@{CONFIG.instance_id}"
+    dispatcher.register_agent(receiver_uri, callback_receiver)
+
+    await dispatcher.start()
+    try:
+        msg = AACPMessage(
+            sender=sender_uri,
+            receiver=receiver_uri,
+            intent=AACPIntent.REQUEST,
+            payload={"data": "run-task"},
+            context_pointer={"type": "plan", "uri": "plan.json", "current_task": "task_42"}
+        )
+        await dispatcher.send_message(msg)
+        await asyncio.wait_for(future_receiver, timeout=1.0)
+    finally:
+        await dispatcher.stop()
+
+    timeline_content = await workspace.read_file("logs/task_timeline.jsonl")
+    entries = [json.loads(line) for line in timeline_content.splitlines() if line.strip()]
+
+    created_entry = next(entry for entry in entries if entry["event"] == "TASK_CREATED")
+    started_entry = next(entry for entry in entries if entry["event"] == "STARTED")
+    finished_entry = next(entry for entry in entries if entry["event"] == "ACTION_FINISHED")
+
+    assert created_entry["task_id"] == "task_42"
+    assert created_entry["agent_id"] == sender_uri
+    assert created_entry["related_agent_id"] == receiver_uri
+    assert started_entry["agent_id"] == receiver_uri
+    assert finished_entry["agent_id"] == receiver_uri
+    assert all(entry["session_id"] == "timeline-task" for entry in entries)
+
+@pytest.mark.asyncio
+async def test_dispatcher_persists_system_timeline_events(tmp_path):
+    workspace = WorkspaceManager(base_dir=str(tmp_path), session_id="timeline-system")
+    dispatcher = AegisDispatcher(workspace=workspace)
+
+    spawn_reply = asyncio.Future()
+    terminate_reply = asyncio.Future()
+    requester_uri = f"planner@{CONFIG.instance_id}"
+
+    async def requester_callback(msg: AACPMessage):
+        status = msg.payload.get("status") if isinstance(msg.payload, dict) else None
+        if status == "SPAWNED" and not spawn_reply.done():
+            spawn_reply.set_result(msg)
+        elif status == "TERMINATED" and not terminate_reply.done():
+            terminate_reply.set_result(msg)
+
+    dispatcher.register_agent(requester_uri, requester_callback)
+
+    await dispatcher.start()
+    try:
+        spawn_msg = AACPMessage(
+            sender=requester_uri,
+            receiver=dispatcher.SYSTEM_AGENT_ID,
+            intent=AACPIntent.SPAWN,
+            payload={"agent_type": "stub", "role": "worker", "agent_id": "timeline_worker"}
+        )
+        await dispatcher.send_message(spawn_msg)
+
+        spawned_msg = await asyncio.wait_for(spawn_reply, timeout=1.0)
+        spawned_agent_id = spawned_msg.payload["agent_id"]
+
+        terminate_msg = AACPMessage(
+            sender=requester_uri,
+            receiver=dispatcher.SYSTEM_AGENT_ID,
+            intent=AACPIntent.TERMINATE,
+            payload={"agent_id": spawned_agent_id}
+        )
+        await dispatcher.send_message(terminate_msg)
+        await asyncio.wait_for(terminate_reply, timeout=1.0)
+    finally:
+        await dispatcher.stop()
+
+    timeline_content = await workspace.read_file("logs/task_timeline.jsonl")
+    entries = [json.loads(line) for line in timeline_content.splitlines() if line.strip()]
+    events = [entry["event"] for entry in entries]
+
+    assert "SPAWN_REQUESTED" in events
+    assert "SPAWNED" in events
+    assert "TERMINATE_REQUESTED" in events
+    assert "TERMINATED" in events
+
+    spawned_entry = next(entry for entry in entries if entry["event"] == "SPAWNED")
+    terminated_entry = next(entry for entry in entries if entry["event"] == "TERMINATED")
+
+    assert spawned_entry["agent_id"].startswith("timeline_worker@")
+    assert spawned_entry["related_agent_id"] == requester_uri
+    assert terminated_entry["agent_id"] == spawned_entry["agent_id"]
+    assert terminated_entry["related_agent_id"] == requester_uri

@@ -20,10 +20,10 @@
     - [x] Record `message_id`, `timestamp`, `sender`, `receiver`, and `intent` for every AACP message.
     - [x] Attach runtime-level tracing metadata (`session_id`, `task_id`, optional `parent_message_id`) without bloating the AACP protocol.
     - [x] Support querying logs by `session_id`.
-- [ ] **C2: Task Timeline**
-    - [ ] Record lifecycle events: `TASK_CREATED`, `SPAWN_REQUESTED`, `SPAWNED`, `STARTED`, `ACTION_FINISHED`, `TASK_COMPLETE`, `TERMINATE_REQUESTED`, `TERMINATED`.
-    - [ ] Make stalled phases diagnosable from timeline logs.
-    - [ ] Enable replay-oriented inspection for long-running sessions.
+- [x] **C2: Task Timeline**
+    - [x] Record lifecycle events: `TASK_CREATED`, `SPAWN_REQUESTED`, `SPAWNED`, `STARTED`, `ACTION_FINISHED`, `TASK_COMPLETE`, `TERMINATE_REQUESTED`, `TERMINATED`.
+    - [x] Make stalled phases diagnosable from timeline logs.
+    - [x] Enable replay-oriented inspection for long-running sessions.
 - [ ] **C3: Workspace Audit Log**
     - [ ] Record every workspace write with `agent_id`, `task_id`, `session_id`, file path, and timestamp.
     - [ ] Establish write-level provenance first; full file diffing is a follow-up enhancement.
@@ -79,7 +79,7 @@
 ## Phase 2 Gates
 - [ ] **Gate 1: Runtime Ready**
     - [x] C1
-    - [ ] C2
+    - [x] C2
     - [ ] B1
     - [ ] B3
     - [ ] B4

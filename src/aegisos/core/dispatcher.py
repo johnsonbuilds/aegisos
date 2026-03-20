@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+from datetime import datetime
 from typing import Dict, Callable, Coroutine, Any, Optional
 from aegisos.core.protocol import AACPMessage, AACPIntent, parse_agent_uri
 from aegisos.core.llm import BaseLLMEngine
@@ -49,6 +50,7 @@ class AegisDispatcher:
         """
         await self.queue.put(message)
         await self._trace_message(message, event="queued")
+        await self._record_timeline_from_message(message)
         logger.debug(f"Message {message.message_id} from {message.sender} to {message.receiver} queued.")
 
     async def start(self):
@@ -164,7 +166,9 @@ class AegisDispatcher:
     async def _call_agent(self, name: str, callback: Callable, message: AACPMessage):
         """Execute Agent callback."""
         try:
+            await self._record_timeline_event(message, event="STARTED", agent_id=name)
             await callback(message)
+            await self._record_timeline_event(message, event="ACTION_FINISHED", agent_id=name)
             trace_event = "broadcast-delivered" if message.receiver == "BROADCAST" else "delivered"
             await self._trace_message(message, event=trace_event, resolved_receiver=name)
         except Exception as e:
@@ -175,6 +179,49 @@ class AegisDispatcher:
                 error=str(e)
             )
             logger.error(f"Error executing callback for Agent '{name}': {e}", exc_info=True)
+
+    def _should_record_timeline(self, message: AACPMessage) -> bool:
+        """Determine whether the message contributes to task or lifecycle replay."""
+        metadata = self._extract_trace_metadata(message)
+        return bool(metadata["task_id"] or message.intent in {
+            AACPIntent.SPAWN,
+            AACPIntent.TERMINATE,
+            AACPIntent.TASK_COMPLETE,
+        })
+
+    async def _record_timeline_from_message(self, message: AACPMessage):
+        """Translate selected outgoing messages into task timeline events."""
+        metadata = self._extract_trace_metadata(message)
+        task_id = metadata["task_id"]
+
+        if message.intent == AACPIntent.SPAWN:
+            await self._record_timeline_event(message, event="SPAWN_REQUESTED", agent_id=message.sender)
+            return
+
+        if message.intent == AACPIntent.TERMINATE:
+            await self._record_timeline_event(
+                message,
+                event="TERMINATE_REQUESTED",
+                agent_id=message.sender,
+                related_agent_id=message.payload.get("agent_id") if isinstance(message.payload, dict) else None,
+            )
+            return
+
+        if message.intent == AACPIntent.TASK_COMPLETE:
+            await self._record_timeline_event(message, event="TASK_COMPLETE", agent_id=message.sender)
+            return
+
+        if (
+            task_id
+            and message.intent == AACPIntent.REQUEST
+            and message.receiver not in {self.SYSTEM_AGENT_ID, "BROADCAST"}
+        ):
+            await self._record_timeline_event(
+                message,
+                event="TASK_CREATED",
+                agent_id=message.sender,
+                related_agent_id=message.receiver,
+            )
 
     def _extract_trace_metadata(self, message: AACPMessage) -> Dict[str, Any]:
         """Extract runtime tracing metadata without extending the AACP protocol."""
@@ -200,6 +247,43 @@ class AegisDispatcher:
             "parent_message_id": str(parent_message_id) if parent_message_id else None,
         }
 
+    async def _append_runtime_log(self, filename: str, entry: Dict[str, Any]):
+        """Persist a runtime event into a workspace-scoped JSONL log."""
+        if not self.workspace or not hasattr(self.workspace, "append_file"):
+            return
+
+        try:
+            async with self._trace_lock:
+                await self.workspace.append_file(filename, json.dumps(entry, ensure_ascii=False) + "\n")
+        except Exception as exc:
+            logger.warning(f"Failed to persist runtime log '{filename}': {exc}")
+
+    async def _record_timeline_event(
+        self,
+        message: AACPMessage,
+        *,
+        event: str,
+        agent_id: Optional[str] = None,
+        related_agent_id: Optional[str] = None,
+        force: bool = False,
+    ):
+        """Persist task and lifecycle replay events when relevant."""
+        if not force and not self._should_record_timeline(message):
+            return
+
+        entry = {
+            "event": event,
+            "timestamp": datetime.now().isoformat(),
+            "message_id": str(message.message_id),
+            "intent": message.intent.value if isinstance(message.intent, AACPIntent) else str(message.intent),
+            "sender": message.sender,
+            "receiver": message.receiver,
+            "agent_id": agent_id,
+            "related_agent_id": related_agent_id,
+            **self._extract_trace_metadata(message),
+        }
+        await self._append_runtime_log("logs/task_timeline.jsonl", entry)
+
     async def _trace_message(
         self,
         message: AACPMessage,
@@ -224,11 +308,7 @@ class AegisDispatcher:
             **self._extract_trace_metadata(message),
         }
 
-        try:
-            async with self._trace_lock:
-                await self.workspace.append_file("logs/message_trace.jsonl", json.dumps(entry, ensure_ascii=False) + "\n")
-        except Exception as exc:
-            logger.warning(f"Failed to persist message trace: {exc}")
+        await self._append_runtime_log("logs/message_trace.jsonl", entry)
 
     async def _system_agent_callback(self, message: AACPMessage):
         """
@@ -271,6 +351,13 @@ class AegisDispatcher:
                 
                 # Register new Agent
                 self.register_agent(new_agent.agent_id, new_agent.handle_message)
+                await self._record_timeline_event(
+                    message,
+                    event="SPAWNED",
+                    agent_id=new_agent.agent_id,
+                    related_agent_id=message.sender,
+                    force=True,
+                )
                 
                 # Reply to sender: success
                 reply = AACPMessage(
@@ -289,6 +376,13 @@ class AegisDispatcher:
             target_agent_id = message.payload.get("agent_id")
             if target_agent_id:
                 self.unregister_agent(target_agent_id)
+                await self._record_timeline_event(
+                    message,
+                    event="TERMINATED",
+                    agent_id=target_agent_id,
+                    related_agent_id=message.sender,
+                    force=True,
+                )
                 reply = AACPMessage(
                     sender=self.SYSTEM_AGENT_ID,
                     receiver=message.sender,
