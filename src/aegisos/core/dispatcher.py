@@ -11,6 +11,10 @@ from aegisos.core.config import CONFIG, NetworkMode
 logging.basicConfig(level=CONFIG.log_level, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("AegisDispatcher")
 
+
+class AgentExecutionTimeout(RuntimeError):
+    """Raised when an agent callback exceeds the configured runtime limit."""
+
 class AegisDispatcher:
     SYSTEM_AGENT_ID = f"system@{CONFIG.instance_id}"
 
@@ -35,12 +39,26 @@ class AegisDispatcher:
         self.agents[agent_id] = callback
         logger.info(f"Agent '{agent_id}' registered.")
 
-    def unregister_agent(self, agent_id: str):
-        """Unregister an Agent."""
+    async def unregister_agent(self, agent_id: str):
+        """Unregister an Agent and attempt to release its resources."""
         if agent_id in self.agents:
             if agent_id == self.SYSTEM_AGENT_ID:
                 logger.error("Cannot unregister system agent!")
                 return
+            
+            callback = self.agents[agent_id]
+            # Try to call close() if the callback belongs to an object with a close method
+            if hasattr(callback, "__self__"):
+                agent_instance = getattr(callback, "__self__")
+                if hasattr(agent_instance, "close"):
+                    try:
+                        if asyncio.iscoroutinefunction(agent_instance.close):
+                            await agent_instance.close()
+                        else:
+                            agent_instance.close()
+                    except Exception as e:
+                        logger.error(f"Error during agent {agent_id} cleanup: {e}")
+
             del self.agents[agent_id]
             logger.info(f"Agent '{agent_id}' unregistered.")
 
@@ -64,14 +82,16 @@ class AegisDispatcher:
 
     async def stop(self):
         """Stop the event loop."""
-        self._is_running = False
         if self._loop_task:
             await self.queue.join()
+            self._is_running = False
             self._loop_task.cancel()
             try:
                 await self._loop_task
             except asyncio.CancelledError:
                 pass
+        else:
+            self._is_running = False
         logger.info("AegisDispatcher stopped.")
 
     async def _event_loop(self):
@@ -79,12 +99,16 @@ class AegisDispatcher:
         while self._is_running:
             try:
                 message = await self.queue.get()
+            except asyncio.CancelledError:
+                break
+            try:
                 await self._route_message(message)
-                self.queue.task_done()
             except asyncio.CancelledError:
                 break
             except Exception as e:
                 logger.error(f"Error in dispatcher event loop: {e}", exc_info=True)
+            finally:
+                self.queue.task_done()
 
     async def _route_message(self, message: AACPMessage):
         """Dispatch message to the target Agent."""
@@ -95,7 +119,10 @@ class AegisDispatcher:
             tasks = [self._call_agent(name, callback, message) 
                      for name, callback in self.agents.items()]
             if tasks:
-                await asyncio.gather(*tasks)
+                results = await asyncio.gather(*tasks, return_exceptions=True)
+                for result in results:
+                    if isinstance(result, Exception):
+                        logger.error(f"Broadcast delivery raised an exception: {result}")
             return
 
         # 1. Resolve logical URI to physical Agent ID
@@ -164,13 +191,42 @@ class AegisDispatcher:
             logger.error(f"Unsupported network mode: {CONFIG.network_mode}")
 
     async def _call_agent(self, name: str, callback: Callable, message: AACPMessage):
-        """Execute Agent callback."""
+        """Execute Agent callback with timeout protection (D1)."""
         try:
             await self._record_timeline_event(message, event="STARTED", agent_id=name)
-            await callback(message)
-            await self._record_timeline_event(message, event="ACTION_FINISHED", agent_id=name)
-            trace_event = "broadcast-delivered" if message.receiver == "BROADCAST" else "delivered"
-            await self._trace_message(message, event=trace_event, resolved_receiver=name)
+            
+            # Apply task-level timeout protection
+            timeout = CONFIG.task_timeout
+            try:
+                await asyncio.wait_for(callback(message), timeout=timeout)
+                await self._record_timeline_event(message, event="ACTION_FINISHED", agent_id=name)
+                trace_event = "broadcast-delivered" if message.receiver == "BROADCAST" else "delivered"
+                await self._trace_message(message, event=trace_event, resolved_receiver=name)
+            except asyncio.TimeoutError:
+                err_msg = f"Task execution timed out after {timeout}s"
+                logger.error(f"Agent '{name}' timeout: {err_msg}. KILLING agent.")
+                await self._record_timeline_event(message, event="TIMEOUT", agent_id=name, force=True)
+                
+                await self.unregister_agent(name)
+
+                await self._trace_message(
+                    message,
+                    event="timeout-error",
+                    resolved_receiver=name,
+                    error=err_msg
+                )
+                # Notify the system about the timeout
+                await self.send_message(AACPMessage(
+                    sender=self.SYSTEM_AGENT_ID,
+                    receiver="BROADCAST",
+                    intent=AACPIntent.ERROR,
+                    payload={"error": err_msg, "agent_id": name, "message_id": str(message.message_id)}
+                ))
+                raise AgentExecutionTimeout(err_msg)
+
+        except AgentExecutionTimeout:
+            raise
+
         except Exception as e:
             await self._trace_message(
                 message,
@@ -375,7 +431,7 @@ class AegisDispatcher:
         elif message.intent == AACPIntent.TERMINATE:
             target_agent_id = message.payload.get("agent_id")
             if target_agent_id:
-                self.unregister_agent(target_agent_id)
+                await self.unregister_agent(target_agent_id)
                 await self._record_timeline_event(
                     message,
                     event="TERMINATED",

@@ -41,7 +41,7 @@ class AACPAgent:
         workspace: Optional[Any] = None,
         max_memory_messages: int = 15
     ):
-        # If agent_id is not provided, generate it based on role and uuid
+        # ... (agent_id generation logic)
         if not agent_id:
             uid = str(uuid.uuid4())[:8]
             self.agent_id = f"{role}_{uid}@{CONFIG.instance_id}"
@@ -56,6 +56,10 @@ class AACPAgent:
         self.system_prompt = system_prompt
         self.dispatcher = dispatcher
         self.workspace = workspace
+        
+        # Runtime State
+        self.current_step = 0
+        self._is_shutdown = False
         
         # Lazy load SandboxRunner
         from aegisos.core.sandbox import SandboxRunner
@@ -94,7 +98,14 @@ class AACPAgent:
         """
         Process incoming AACP messages: inject minimal context index and record history.
         """
+        if self._is_shutdown:
+            logger.debug(f"[{self.agent_id}] Ignored message (Agent is shut down).")
+            return
+
         logger.info(f"[{self.agent_id}] Received message from {message.sender}: {message.intent}")
+        
+        # Reset loop counter on new external instruction
+        self.current_step = 0
         
         # --- Message Representation for LLM ---
         msg_str = (
@@ -129,11 +140,47 @@ class AACPAgent:
         else:
             return f"\nCONTEXT_POINTER (URI): {context_pointer}\n"
 
+    async def close(self):
+        """Release agent resources."""
+        if self._is_shutdown:
+            return
+        self._is_shutdown = True
+        logger.info(f"[{self.agent_id}] Shutting down...")
+
+    async def _shutdown_and_unregister(self):
+        """Idempotently close the agent and remove it from the dispatcher registry."""
+        await self.close()
+        if self.dispatcher and hasattr(self.dispatcher, "unregister_agent"):
+            try:
+                await self.dispatcher.unregister_agent(self.agent_id)
+            except Exception as e:
+                logger.error(f"[{self.agent_id}] Failed to unregister during shutdown: {e}")
+
     async def think(self):
         """
         Core reasoning loop: call LLM and enforce AACP Payload/Context separation.
         """
-        logger.debug(f"[{self.agent_id}] Thinking...")
+        if self._is_shutdown:
+            logger.warning(f"[{self.agent_id}] think() called after shutdown. Aborting.")
+            return
+
+        self.current_step += 1
+        if self.current_step > CONFIG.agent_max_steps:
+            err_msg = f"Max steps ({CONFIG.agent_max_steps}) exceeded in reasoning loop."
+            logger.error(f"[{self.agent_id}] {err_msg}")
+            
+            if self.dispatcher:
+                await self.dispatcher.send_message(AACPMessage(
+                    sender=self.agent_id,
+                    receiver="BROADCAST",
+                    intent=AACPIntent.ERROR,
+                    payload={"error": err_msg, "step": self.current_step}
+                ))
+            
+            await self._shutdown_and_unregister()
+            return
+
+        logger.debug(f"[{self.agent_id}] Thinking (Step {self.current_step})...")
         
         try:
             # Prepare messages

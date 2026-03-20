@@ -2,6 +2,7 @@ import pytest
 import asyncio
 from unittest.mock import AsyncMock, patch
 from aegisos.core.protocol import AACPMessage, AACPIntent
+from aegisos.core.dispatcher import AegisDispatcher
 from aegisos.core.llm import OpenAIEngine
 from aegisos.agents.base import AACPAgent, AACPResponse
 from aegisos.core.config import CONFIG
@@ -55,3 +56,44 @@ async def test_aacp_agent_think_loop():
     assert sent_msg.receiver == f"UserAgent@{CONFIG.instance_id}"
     assert sent_msg.payload["reply"] == "Hello back!"
     assert sent_msg.intent == AACPIntent.INFORM
+
+
+@pytest.mark.asyncio
+async def test_aacp_agent_step_guard_unregisters_self():
+    original_max_steps = CONFIG.agent_max_steps
+    CONFIG.agent_max_steps = 2
+
+    try:
+        mock_llm = AsyncMock(spec=OpenAIEngine)
+        dispatcher = AegisDispatcher()
+        agent = AACPAgent(
+            role="assistant",
+            agent_id="LoopBot",
+            llm_engine=mock_llm,
+            system_prompt="You are a looping assistant.",
+            dispatcher=dispatcher,
+        )
+        agent.register_to(dispatcher)
+
+        mock_llm.generate.return_value = AACPResponse(
+            thought="Keep trying the same action.",
+            receiver=agent.agent_id,
+            intent=AACPIntent.REQUEST,
+            action={"name": "missing.skill", "args": {}},
+            payload={},
+        )
+
+        incoming_msg = AACPMessage(
+            sender=f"UserAgent@{CONFIG.instance_id}",
+            receiver=agent.agent_id,
+            intent=AACPIntent.REQUEST,
+            payload={"query": "loop"},
+        )
+
+        await agent.handle_message(incoming_msg)
+
+        assert agent._is_shutdown is True
+        assert agent.agent_id not in dispatcher.agents
+        assert mock_llm.generate.await_count == 2
+    finally:
+        CONFIG.agent_max_steps = original_max_steps

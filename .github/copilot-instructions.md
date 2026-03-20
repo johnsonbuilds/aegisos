@@ -13,9 +13,9 @@ This document records the core architectural design, engineering practices, and 
 - **Data Model**: Mandatory use of **Pydantic V2** (`BaseModel`, `ConfigDict`) for all AACP protocol and configuration definitions.
 - **Path Safety**: All file system operations must pass `WorkspaceManager` Path Traversal validation.
 
-## 2. Development Workflow
+## 2. Development Task Workflow
 
-Follow this cycle for tasks in each Phase:
+If it is a development task ,Follow below steps:
 
 ### 1. Research: Read project memory files to understand the current status and next tasks
 
@@ -53,7 +53,77 @@ Follow this cycle for tasks in each Phase:
 - Do not modify `vision.md` and `roadmap.md` unless explicitly instructed.
 - Do not modify `architecture.md` unless the architecture changes.
 
-## 3. Module Responsibility Division
+## 3. Code Review Task Workflow
+
+If it is a code review task, Follow below priciples:
+
+### 1. Context Acquisition
+
+- Read relevant project memory:
+    - `architecture.md`
+    - `decisions.md`
+- Read the target code / diff carefully
+
+---
+
+### 2. Critical Analysis (MANDATORY)
+
+The Review Agent MUST assume the implementation may contain flaws.
+
+Focus on:
+
+- **Architecture Violations**
+    - Does it break layering / module boundaries?
+- **Consistency Issues**
+    - Naming, async model, protocol usage
+- **Correctness Risks**
+    - Edge cases, race conditions, retries, loop guards
+- **Scalability Risks**
+    - Will this break under long-running agents?
+- **Security Risks**
+    - Workspace path safety, injection surfaces
+- **AegisOS-specific invariants**
+    - message flow correctness
+    - agent lifecycle correctness
+
+---
+
+### 3. Issue Classification
+
+All findings must be categorized:
+
+- 🔴 Critical (must fix before merge)
+- 🟠 Major (should fix)
+- 🟡 Minor (optional improvements)
+
+---
+
+### 4. Review Output Format (STRICT)
+
+example output:
+
+```
+## Review Summary
+
+### Critical Issues
+
+### Major Issues
+
+### Minor Suggestions
+
+### Final Verdict
+- APPROVED / REJECTED / NEEDS REVISION
+```
+
+---
+
+### 5. Constraints
+
+- ❌ MUST NOT modify code directly
+- ❌ MUST NOT introduce new features
+- ✅ Only analyze, critique, and suggest
+
+## 4. Module Responsibility Division
 
 - `core.protocol`: Defines AACP communication protocol Standard Format and Agent URI specifications.
 - `core.dispatcher`: Implements the message dispatch center based on `asyncio.Queue`, supporting local routing and remote Egress (Tailscale/Nostr, etc.).
@@ -62,7 +132,7 @@ Follow this cycle for tasks in each Phase:
 - `agents/`: Stores implementation logic for various types of Agents.
 - `memory/`: (To be developed) Handles Token routing interception and long/short-term memory.
 
-## 4. Key Interface Conventions
+## 5. Key Interface Conventions
 
 - **Agent URI**: Format is `{id}@{instance}` (e.g., `assistant_123@local`). `BROADCAST` is a special reserved address.
 - **AACP Message**: Contains `message_id`, `timestamp`, `sender`, `receiver`, `intent`, `payload`, `context_pointer`.

@@ -29,9 +29,9 @@
     - [ ] Establish write-level provenance first; full file diffing is a follow-up enhancement.
 
 ### Task Group B: Runtime Guardrails (P0)
-- [ ] **B1: Infinite Loop Guard**
-    - [ ] Add `max_steps` to every agent reasoning loop.
-    - [ ] Auto-terminate and persist loop diagnostics when the limit is exceeded.
+- [x] **B1: Infinite Loop Guard**
+    - [x] Add `max_steps` to every agent reasoning loop.
+    - [x] Auto-terminate and persist loop diagnostics when the limit is exceeded.
 - [ ] **B2: Retry / Exponential Backoff**
     - [ ] Add bounded retries for tool / network failures.
     - [ ] Persist final failures into workspace error logs.
@@ -39,16 +39,16 @@
     - [ ] Ensure `TASK_COMPLETE` deterministically triggers `TERMINATE`.
     - [ ] Verify dispatcher registry cleanup to prevent zombie agents.
 - [ ] **B4: Task State Guard**
-    - [ ] Enforce task state machine: `pending -> doing -> done|failed`.
-    - [ ] Make Coordinator the single writer of `plan.json`.
+    - [x] Enforce task state machine: `pending -> doing -> done|failed`.
+    - [x] Make Coordinator the single writer of `plan.json`.
     - [ ] Prevent redispatch of completed tasks.
-    - [ ] Add version / revision metadata and atomic plan updates.
+    - [x] Add version / revision metadata and atomic plan updates.
 
 ### Task Group D: Minimal Safety (P1)
 - [ ] **D1: Timeout / Kill Switch**
-    - [ ] Add task-level timeout.
+    - [x] Add task-level timeout.
     - [ ] Add tool-level timeout.
-    - [ ] Force failure + termination when timeout is exceeded.
+    - [x] Force failure + termination when timeout is exceeded.
 - [ ] **D2: Sandbox Hardening (Minimal)**
     - [ ] Tighten resource limits for the current subprocess-based sandbox.
     - [ ] Clarify and enforce workspace-only access boundaries.
@@ -80,7 +80,7 @@
 - [ ] **Gate 1: Runtime Ready**
     - [x] C1
     - [x] C2
-    - [ ] B1
+    - [x] B1
     - [ ] B3
     - [ ] B4
     - [ ] D1

@@ -75,3 +75,95 @@ async def test_structured_context_pointer_and_auto_inspection(tmp_path):
     assert sent_msg.payload["action"]["args"]["path"] == "test.txt"
     assert isinstance(sent_msg.context_pointer, dict)
     assert sent_msg.context_pointer["current_task"] == "task_1"
+
+
+@pytest.mark.asyncio
+async def test_coordinator_updates_plan_without_llm(tmp_path):
+    workspace = WorkspaceManager(tmp_path)
+    await workspace.write_file(
+        "plan.json",
+        json.dumps({
+            "goal": "demo",
+            "revision": 0,
+            "tasks": [{
+                "id": "task_1",
+                "description": "demo task",
+                "status": "running",
+                "revision": 0,
+            }],
+        })
+    )
+
+    llm = AsyncMock()
+    dispatcher = MagicMock()
+    dispatcher.send_message = AsyncMock()
+    coordinator = CoordinatorAgent(llm_engine=llm, workspace=workspace, dispatcher=dispatcher)
+
+    message = AACPMessage(
+        sender="worker@local",
+        receiver=coordinator.agent_id,
+        intent=AACPIntent.INFORM,
+        payload={
+            "task_id": "task_1",
+            "status": "done",
+            "result": {"summary": "ok"},
+            "expected_revision": 0,
+        },
+    )
+
+    await coordinator.handle_message(message)
+
+    llm.generate.assert_not_called()
+    dispatcher.send_message.assert_not_called()
+
+    plan = json.loads(await workspace.read_file("plan.json"))
+    assert plan["revision"] == 1
+    assert plan["tasks"][0]["status"] == "done"
+    assert plan["tasks"][0]["revision"] == 1
+    assert plan["tasks"][0]["result"] == {"summary": "ok"}
+
+
+@pytest.mark.asyncio
+async def test_coordinator_rejects_missing_expected_revision_without_llm(tmp_path):
+    workspace = WorkspaceManager(tmp_path)
+    initial_plan = {
+        "goal": "demo",
+        "revision": 0,
+        "tasks": [{
+            "id": "task_1",
+            "description": "demo task",
+            "status": "running",
+            "revision": 0,
+        }],
+    }
+    await workspace.write_file("plan.json", json.dumps(initial_plan))
+
+    llm = AsyncMock()
+    dispatcher = MagicMock()
+    dispatcher.send_message = AsyncMock()
+    coordinator = CoordinatorAgent(llm_engine=llm, workspace=workspace, dispatcher=dispatcher)
+
+    message = AACPMessage(
+        sender="worker@local",
+        receiver=coordinator.agent_id,
+        intent=AACPIntent.INFORM,
+        payload={
+            "task_id": "task_1",
+            "status": "done",
+            "result": {"summary": "ok"},
+        },
+    )
+
+    await coordinator.handle_message(message)
+
+    llm.generate.assert_not_called()
+    dispatcher.send_message.assert_called_once()
+
+    error_msg = dispatcher.send_message.call_args[0][0]
+    assert error_msg.receiver == "worker@local"
+    assert error_msg.intent == AACPIntent.ERROR
+    assert error_msg.payload["task_id"] == "task_1"
+    assert error_msg.payload["reason"] == "missing_expected_revision"
+
+    plan = json.loads(await workspace.read_file("plan.json"))
+    assert plan == initial_plan

@@ -239,3 +239,39 @@ async def test_dispatcher_persists_system_timeline_events(tmp_path):
     assert spawned_entry["related_agent_id"] == requester_uri
     assert terminated_entry["agent_id"] == spawned_entry["agent_id"]
     assert terminated_entry["related_agent_id"] == requester_uri
+
+
+@pytest.mark.asyncio
+async def test_dispatcher_timeout_unregisters_agent(tmp_path):
+    workspace = WorkspaceManager(base_dir=str(tmp_path), session_id="timeout-session")
+    dispatcher = AegisDispatcher(workspace=workspace)
+    agent_id = f"slowpoke@{CONFIG.instance_id}"
+    original_timeout = CONFIG.task_timeout
+
+    async def slow_callback(msg: AACPMessage):
+        await asyncio.sleep(0.2)
+
+    dispatcher.register_agent(agent_id, slow_callback)
+    CONFIG.task_timeout = 0.05
+
+    await dispatcher.start()
+    try:
+        msg = AACPMessage(
+            sender=f"planner@{CONFIG.instance_id}",
+            receiver=agent_id,
+            intent=AACPIntent.REQUEST,
+            payload={"data": "timeout-me"},
+            context_pointer={"type": "plan", "uri": "plan.json", "current_task": "task_timeout"},
+        )
+        await dispatcher.send_message(msg)
+        await asyncio.sleep(0.2)
+    finally:
+        CONFIG.task_timeout = original_timeout
+        await dispatcher.stop()
+
+    assert agent_id not in dispatcher.agents
+
+    timeline_content = await workspace.read_file("logs/task_timeline.jsonl")
+    entries = [json.loads(line) for line in timeline_content.splitlines() if line.strip()]
+    timeout_entry = next(entry for entry in entries if entry["event"] == "TIMEOUT")
+    assert timeout_entry["agent_id"] == agent_id

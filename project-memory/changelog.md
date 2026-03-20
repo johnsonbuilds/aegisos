@@ -1,5 +1,17 @@
 # AegisOS Changelog
 
+## [0.1.7] - 2026-03-20
+### Added
+- **Plan Guard Module**: Added `src/aegisos/core/tasks.py` with `Plan`, `Task`, `TaskUpdateProposal`, and deterministic Coordinator update outcomes.
+- **Guardrail Regression Tests**: Added focused tests for Coordinator deterministic updates, missing `expected_revision` rejection, dispatcher timeout cleanup, and agent self-unregister on step exhaustion.
+
+### Changed
+- **Configuration Loading**: `AegisConfig` now supports `aegisos.json` plus environment overrides for `agent_max_steps` and `task_timeout`.
+- **Coordinator Determinism**: `CoordinatorAgent` now handles Worker task-update `INFORM` messages without falling back to the LLM path and requires `expected_revision` for CAS-safe plan updates.
+- **Agent Lifecycle Guard**: `AACPAgent` now enforces `max_steps`, ignores new messages after shutdown, and unregisters itself from the dispatcher when the loop guard trips.
+- **Dispatcher Kill Switch**: `AegisDispatcher` now enforces task-level timeouts, unregisters timed-out agents, raises `AgentExecutionTimeout`, and preserves safe queue shutdown semantics while broadcasts collect timeout failures.
+- **Workspace Atomic Writes**: `WorkspaceManager` now persists `plan.json` via tmp-then-replace atomic writes to prevent partial corruption during concurrent task-state updates.
+
 ## [0.1.6] - 2026-03-20
 ### Added
 - **Dispatcher Trace Log**: Added workspace-backed JSONL message tracing at `logs/message_trace.jsonl`, including delivery outcomes and runtime metadata such as `session_id` and `task_id`.

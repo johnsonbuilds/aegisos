@@ -15,7 +15,7 @@ async def test_dispatcher_system_agent_protection():
     assert system_id in dispatcher.agents
     
     # Attempt to unregister
-    dispatcher.unregister_agent(system_id)
+    await dispatcher.unregister_agent(system_id)
     assert system_id in dispatcher.agents  # Should still exist
 
 @pytest.mark.asyncio

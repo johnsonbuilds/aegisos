@@ -26,15 +26,37 @@ class WorkspaceManager:
         return target_path
 
     async def write_file(self, filename: str, content: str) -> str:
-        """Asynchronously write a file."""
+        """Asynchronously write a file (standard)."""
         target_path = self._safe_path(filename)
-        # Ensure the parent directory exists (supports writing to subdirectories)
         target_path.parent.mkdir(parents=True, exist_ok=True)
         
         async with aiofiles.open(target_path, mode='w', encoding='utf-8') as f:
             await f.write(content)
         
-        # Return the relative path string relative to the root directory
+        return str(target_path.relative_to(self.root_path))
+
+    async def atomic_write(self, filename: str, content: str) -> str:
+        """
+        Asynchronously write a file using a tmp-then-rename pattern.
+        Ensures partial writes do not corrupt the original file.
+        """
+        target_path = self._safe_path(filename)
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        tmp_filename = f"{filename}.{uuid4().hex[:8]}.tmp"
+        tmp_path = self._safe_path(tmp_filename)
+
+        try:
+            async with aiofiles.open(tmp_path, mode='w', encoding='utf-8') as f:
+                await f.write(content)
+            
+            # Atomic rename (POSIX guaranteed)
+            os.replace(tmp_path, target_path)
+        except Exception as e:
+            if tmp_path.exists():
+                os.remove(tmp_path)
+            raise e
+            
         return str(target_path.relative_to(self.root_path))
 
     async def append_file(self, filename: str, content: str) -> str:
