@@ -54,27 +54,98 @@
     - [ ] Clarify and enforce workspace-only access boundaries.
     - [ ] Keep scope minimal; do not claim final Zero-Trust completeness in this phase.
 
-### Task Group A: Real Task Loops (P1, after P0 guardrails)
-- [ ] **A2: API Monitor Loop** *(first stable loop)*
-    - [ ] Implement as a deterministic / functional monitoring path first.
-    - [ ] Run with bounded retries and bounded execution time.
-    - [ ] Pass 24h stability gate before the 72h validation run.
-    - [ ] Pass 72h validation without zombie agents, infinite retry, or duplicate dispatch.
-- [ ] **A1: Daily Web Report Loop**
-    - [ ] Trigger once per day via scheduler tick -> Coordinator task materialization.
-    - [ ] Persist `report.md` in workspace without duplicate daily execution.
-- [ ] **A3: Daily Content Generation Loop**
-    - [ ] Trigger once per day via scheduler tick -> Coordinator task materialization.
-    - [ ] Persist `post.txt` with stable structure and no duplicate window execution.
+### Task Group A: Real Value Task Loops (P1, after P0 guardrails)
 
-### Deferred Track (After Phase 2 Stabilizes)
-- [ ] **Prompt Optimization**: Improve `AACPResponse` stability across models.
-- [ ] **Prompt Caching**: Reduce repetitive prompt cost after runtime becomes stable.
-- [ ] **Memory Engine Expansion**:
-    - [ ] Token-aware hot memory truncation.
-    - [ ] Cold memory / vector store integration.
-    - [ ] Knowledge distillation background flow.
-- [ ] **HITL Interceptor**: Define approval workflows for sensitive actions.
+Goal: Validate that agents can produce outputs with potential economic value (not just execution correctness)
+
+- [ ] **A2: Market Signal Monitor Loop** *(first stable loop)*
+    - [ ]  Implement as a deterministic / functional monitoring path first.
+    - [ ]  Integrate real data sources (e.g., prediction markets, crypto signals, trending topics).
+    - [ ]  Output MUST include:
+        - clear actionable decision (e.g., YES / NO / BUY / SELL)
+        - reasoning (structured, not verbose noise)
+        - confidence score (0~1)
+    - [ ]  Run with bounded retries and bounded execution time.
+    - [ ]  Pass 24h stability gate before the 72h validation run.
+    - [ ]  Pass 72h validation without zombie agents, infinite retry, or duplicate dispatch.
+- [ ] **A1: Actionable Intelligence Report Loop (upgraded from Daily Web Report)**
+    - [ ]  Trigger once per day via scheduler tick -> Coordinator task materialization.
+    - [ ]  Replace “information summary” with:
+        - actionable insights
+        - prioritized opportunities
+        - recommended actions
+    - [ ]  Persist `report.md` in workspace.
+    - [ ]  Output must be:
+        - decision-oriented (not descriptive)
+        - structured (machine + human readable)
+    - [ ]  Ensure no duplicate daily execution.
+
+- [ ] **A0: Founder Daily Usage Loop**
+    - [ ] Run at least one agent workflow daily for personal decision support
+    - [ ] Log:
+        - whether result was used
+        - whether it influenced real decision
+    - [ ] Track:
+        - usefulness (yes/no)
+        - trust level
+
+- [ ] **A3: Paid Task Simulation Loop (🔥 Critical)**
+
+> Goal: Simulate real marketplace tasks and validate agent output quality + evaluability
+
+- Evaluation Schema (Required)
+
+    - [ ] Define a strict evaluation schema for each task:
+        - correctness (0/1 or score)
+        - actionability (can user directly act?)
+        - specificity (not generic)
+        - consistency (same input → similar output)
+
+    - [ ] Each output MUST be machine-evaluable (JSON-based scoring possible)
+    ---
+
+ - Requirements
+
+    - [ ]  Define at least 3 task templates with:
+        - clear objective
+        - clear evaluation criteria
+        - bounded scope
+
+    ---
+
+- Example Task Template
+
+    ```
+    Task:
+    Identify a short-term opportunity in a prediction market within 24h
+
+    Output must include:
+    - explicit position (YES / NO)
+    - reasoning
+    - confidence score
+    ```
+
+    ---
+
+- Execution Requirements
+
+    - [ ]  Task must produce:
+        - deterministic structure (JSON or strict markdown)
+        - evaluable output (not vague text)
+    - [ ]  Persist result in workspace
+    - [ ]  Ensure repeatability across runs
+
+    ---
+
+- Validation Criteria
+
+    - [ ]  Output is:
+        - actionable
+        - comparable (can be judged by another agent)
+        - non-trivial (not generic summary)
+    - [ ]  At least one task can run end-to-end without manual intervention
+
+
 
 ## Phase 2 Gates
 - [ ] **Gate 1: Runtime Ready**
@@ -84,13 +155,20 @@
     - [ ] B3
     - [ ] B4
     - [ ] D1
-- [ ] **Gate 2: First Stable Real Loop**
-    - [ ] A2 completes 24h stable run.
-- [ ] **Gate 3: 72h Validation**
-    - [ ] At least one real loop runs for 72h.
-    - [ ] No zombie agents.
-    - [ ] No duplicate task execution.
-    - [ ] No unexplained crash.
+
+## Gate 2: First Stable Real Loop
+
+- [ ]  A2 completes 24h stable run
+- [ ]  A3 produces evaluable outputs
+
+---
+
+## Gate 3: 72h Validation
+
+- [ ]  At least one real value loop runs for 72h
+- [ ]  No zombie agents
+- [ ]  No duplicate task execution
+- [ ]  No unexplained crash
 
 ---
 *Note: For long-term sequencing, please see [Roadmap](./roadmap.md)*
