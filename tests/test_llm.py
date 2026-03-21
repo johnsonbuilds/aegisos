@@ -25,6 +25,10 @@ async def test_openai_engine_structured():
         assert isinstance(result, SimpleResponse)
         assert result.answer == "hello"
         assert result.confidence == 0.99
+        assert messages == [{"role": "user", "content": "hi"}]
+        sent_messages = mock_create.call_args.kwargs["messages"]
+        assert sent_messages[-1]["content"].startswith("hi")
+        assert "IMPORTANT: You must return ONLY a valid JSON object matching this schema:" in sent_messages[-1]["content"]
 
 @pytest.mark.asyncio
 async def test_anthropic_engine_text():

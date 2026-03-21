@@ -52,15 +52,54 @@ class SimpleHttpEngine(BaseFetchEngine):
 # --- 4. Engine Registry ---
 ENGINE_REGISTRY: Dict[str, BaseFetchEngine] = {
     "simple": SimpleHttpEngine(),
+    "default": SimpleHttpEngine(),
 }
 
 # --- 5. WebFetchSkill ---
 class WebFetchSkill(BaseSkill):
     """
-    Unified Web Fetch Skill with pluggable engines and Workspace persistence.
+    Unified Web Fetch Skill with Workspace persistence.
+    Args:
+        url (str): The URL to fetch.
+        mode (str, optional): 'markdown' (default) or 'html'.
+        engine (str, optional): 'simple' (default).
     """
     def __init__(self):
         super().__init__(name=AACPAction.WEB_FETCH.value)
+
+    def get_description(self) -> str:
+        return "Fetch a web page and persist the result into the workspace, returning a context pointer."
+
+    def get_input_schema(self) -> Dict[str, Any]:
+        return {
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "string",
+                    "description": "Absolute URL to fetch.",
+                },
+                "mode": {
+                    "type": "string",
+                    "enum": ["markdown", "html"],
+                    "description": "Persist output as Markdown or raw HTML.",
+                },
+                "engine": {
+                    "type": "string",
+                    "description": "Fetcher implementation name. Unknown values fall back to the default engine.",
+                },
+                "timeout": {
+                    "type": "number",
+                    "description": "Optional request timeout in seconds.",
+                },
+                "headers": {
+                    "type": "object",
+                    "description": "Optional HTTP headers map.",
+                    "additionalProperties": {"type": "string"},
+                },
+            },
+            "required": ["url"],
+            "additionalProperties": True,
+        }
 
     async def execute(self, payload: Dict[str, Any], context: Optional[Dict[str, Any]] = None) -> SkillResult:
         url = payload.get("url")
@@ -75,10 +114,15 @@ class WebFetchSkill(BaseSkill):
             
         engine = ENGINE_REGISTRY.get(engine_name)
         if not engine:
-            return SkillResult(success=False, error=f"Unknown engine: {engine_name}")
+            logger.warning(f"Unknown engine: {engine_name}. Defaulting to 'simple'.")
+            engine = ENGINE_REGISTRY.get("simple")
             
         # 1. Engine Fetch
-        result = await engine.fetch(url, **payload)
+        fetch_kwargs = payload.copy()
+        if "url" in fetch_kwargs:
+            del fetch_kwargs["url"]
+            
+        result = await engine.fetch(url, **fetch_kwargs)
         
         if result.error:
             return SkillResult(success=False, error=result.error)

@@ -19,6 +19,26 @@ class BaseSkill(ABC):
     def __init__(self, name: str):
         self.name = name
 
+    def get_description(self) -> str:
+        """Return a concise human-readable description for prompt injection."""
+        return (self.__doc__ or "").strip() or "No description available."
+
+    def get_input_schema(self) -> Dict[str, Any]:
+        """Return a model-agnostic input schema for this skill."""
+        return {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": True,
+        }
+
+    def describe(self) -> Dict[str, Any]:
+        """Return structured metadata about the skill."""
+        return {
+            "name": self.name,
+            "description": self.get_description(),
+            "input_schema": self.get_input_schema(),
+        }
+
     @abstractmethod
     async def execute(self, payload: Dict[str, Any], context: Optional[Dict[str, Any]] = None) -> SkillResult:
         """

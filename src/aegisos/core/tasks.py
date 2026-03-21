@@ -13,6 +13,7 @@ class Task(BaseModel):
     id: str
     description: str
     status: TaskStatus = Field(default=TaskStatus.PENDING)
+    role: Optional[str] = None
     assignee: Optional[str] = None
     result: Optional[Any] = None
     error: Optional[str] = None
@@ -38,7 +39,7 @@ class TaskUpdateProposal(BaseModel):
     new_status: TaskStatus
     result: Optional[Any] = None
     error: Optional[str] = None
-    expected_revision: int
+    expected_revision: Optional[int] = None
 
 class TaskUpdateResult(BaseModel):
     """Deterministic outcome returned by Coordinator task-update handling."""
@@ -89,7 +90,10 @@ class PlanManager:
             return False
         
         # 1. Version Check (CAS)
-        if task.revision != proposal.expected_revision:
+        if proposal.expected_revision is None:
+            return False
+        # Skip check only when the caller explicitly requests bypass mode via -1.
+        if proposal.expected_revision != -1 and task.revision != proposal.expected_revision:
             return False
             
         # 2. State Machine Check

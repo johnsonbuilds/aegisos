@@ -79,6 +79,8 @@ Goal: Validate that agents can produce outputs with potential economic value (no
         - decision-oriented (not descriptive)
         - structured (machine + human readable)
     - [ ]  Ensure no duplicate daily execution.
+    - [ ]  Replace MVP execution hints (`input_context_pointer`, `output_path`, coordinator-prepared excerpt artifacts) with an explicit skill/SOP contract after the real loop is stable.
+    - [ ]  Replace the temporary worker-side direct artifact-task execution path with a dedicated analysis/report skill once the orchestration contract is finalized.
 
 - [ ] **A0: Founder Daily Usage Loop**
     - [ ] Run at least one agent workflow daily for personal decision support

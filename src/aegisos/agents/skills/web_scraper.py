@@ -16,6 +16,31 @@ class WebScraperSkill(BaseSkill):
     def __init__(self):
         super().__init__(name=AACPAction.WEB_FETCH.value)
 
+    def get_description(self) -> str:
+        return "Fetch a web page and save the processed content into the workspace."
+
+    def get_input_schema(self) -> Dict[str, Any]:
+        return {
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "string",
+                    "description": "Absolute URL to fetch.",
+                },
+                "mode": {
+                    "type": "string",
+                    "enum": ["markdown", "html"],
+                    "description": "Output format for the saved content.",
+                },
+                "timeout": {
+                    "type": "number",
+                    "description": "Optional request timeout in seconds.",
+                },
+            },
+            "required": ["url"],
+            "additionalProperties": False,
+        }
+
     async def execute(self, payload: Dict[str, Any], context: Optional[Dict[str, Any]] = None) -> SkillResult:
         url = payload.get("url")
         mode = payload.get("mode", "markdown")

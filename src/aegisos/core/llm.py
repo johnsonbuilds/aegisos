@@ -30,7 +30,7 @@ class BaseLLMEngine(abc.ABC):
 
 class OpenAIEngine(BaseLLMEngine):
     """
-    OpenAI engine implementation (supports GPT-4, DeepSeek, and all OpenAI-compatible backends)
+    OpenAI engine implementation for OpenAI-compatible backends.
     """
     def __init__(self, api_key: Optional[str] = None, base_url: Optional[str] = None, model: Optional[str] = None):
         self.client = AsyncOpenAI(
@@ -47,11 +47,18 @@ class OpenAIEngine(BaseLLMEngine):
     ) -> Union[str, T]:
         try:
             if response_model:
-                # Use standard json_object for maximum compatibility across different providers
-                # Note: 'json' must be mentioned in the prompt for this format
+                # Ensure the model knows the expected schema
+                schema_directive = f"\n\nIMPORTANT: You must return ONLY a valid JSON object matching this schema: {response_model.model_json_schema()}"
+                
+                # Clone messages to avoid mutating the original list
+                messages_with_schema = [m.copy() for m in messages]
+                if messages_with_schema and messages_with_schema[-1]["role"] == "user":
+                    messages_with_schema[-1]["content"] += schema_directive
+                
+                # Use standard json_object for maximum compatibility
                 completion = await self.client.chat.completions.create(
                     model=self.model,
-                    messages=messages,
+                    messages=messages_with_schema,
                     response_format={'type': 'json_object'},
                     **kwargs
                 )
@@ -59,6 +66,7 @@ class OpenAIEngine(BaseLLMEngine):
                 if not content:
                     raise ValueError("LLM returned empty content")
                 
+                logger.debug(f"LLM Raw Response: {content}")
                 # Use Pydantic to validate and parse the JSON string
                 return response_model.model_validate_json(content)
             else:

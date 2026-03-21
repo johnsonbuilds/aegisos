@@ -1,6 +1,0 @@
-{
-  "goal": "Fetch the main page of https://www.indiehackers.com/ and generate a summary report of current top stories.",
-  "detailed_instructions": "1. Use core.web.fetch to get the HTML content of https://www.indiehackers.com/.\n2. Parse the HTML to extract the top stories. Look for article titles, summaries/descriptions, and any metadata like date or engagement metrics. Focus on content in main sections, headlines, or story listings.\n3. Format the extracted stories into a structured summary report. Include: a title, total number of stories found, and a list of each story with title and a brief description (1-2 sentences).\n4. Save the summary report to a file named 'indiehackers_summary.txt'.\n5. Return a success message with the file path and a brief overview of the findings.",
-  "expected_output": "A summary report file (indiehackers_summary.txt) and a confirmation message.",
-  "tools_required": ["core.web.fetch", "core.text.extract", "core.fs.write"]
-}

@@ -1,5 +1,14 @@
 # AegisOS Changelog
 
+## [0.1.8] - 2026-03-21
+### Changed
+- **Coordinator/Worker Boundary Realignment**: Removed `task_description` / role injection from worker-dispatch payloads and reduced worker task context back to the minimal `plan.json` pointer plus `current_task` / `expected_revision`, restoring consistency with the payload/context boundary in the architecture.
+- **Worker Responsibility Rollback**: Removed the hardcoded summary-task fast path from `WorkerAgent`; workers now return to the standard model of reading task details from `plan.json` and choosing execution steps through the normal reasoning loop.
+
+### Notes
+- **Temporary MVP Shortcut (Tracked)**: The real fetch/report loop still uses minimal runtime hints in `payload` such as `input_context_pointer` and `output_path`, and the coordinator may prepare truncated excerpt artifacts for prompt-safety. These are treated as temporary execution parameters for MVP closure and must be formalized later as an explicit skill/SOP contract.
+- **Temporary MVP Shortcut (Tracked)**: Workers now have a plan-driven direct artifact-task execution path for report-style tasks when the Coordinator supplies runtime artifact hints. This avoids model drift during the real fetch/report demo but should later be replaced by an explicit reusable analysis/report skill.
+
 ## [0.1.7] - 2026-03-20
 ### Added
 - **Plan Guard Module**: Added `src/aegisos/core/tasks.py` with `Plan`, `Task`, `TaskUpdateProposal`, and deterministic Coordinator update outcomes.

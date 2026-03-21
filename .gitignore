@@ -159,3 +159,5 @@ tests/_test_workspace/
 !docs/
 
 demo_workspace/
+
+aegisos.json

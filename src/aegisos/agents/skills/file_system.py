@@ -9,9 +9,39 @@ logger = logging.getLogger("FileSystemSkill")
 class FileSystemSkill(BaseSkill):
     """
     Skill for basic file system operations.
+    Args:
+        path (str): Relative path to the file in the workspace.
+        content (str, optional): Content to write (for core.fs.write).
     """
     def __init__(self, name: str):
         super().__init__(name=name)
+
+    def get_description(self) -> str:
+        if self.name == AACPAction.FILE_WRITE.value:
+            return "Write text content to a workspace-relative file."
+        if self.name == AACPAction.FILE_READ.value:
+            return "Read text content from a workspace-relative file."
+        return super().get_description()
+
+    def get_input_schema(self) -> Dict[str, Any]:
+        schema: Dict[str, Any] = {
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "Relative path to the file inside the workspace.",
+                },
+            },
+            "required": ["path"],
+            "additionalProperties": False,
+        }
+        if self.name == AACPAction.FILE_WRITE.value:
+            schema["properties"]["content"] = {
+                "type": "string",
+                "description": "Full file content to write.",
+            }
+            schema["required"].append("content")
+        return schema
 
     async def execute(self, payload: Dict[str, Any], context: Optional[Dict[str, Any]] = None) -> SkillResult:
         workspace_path = context.get("workspace_path") if context else None
